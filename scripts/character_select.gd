@@ -71,6 +71,7 @@ func _play_intro() -> void:
 func _select_character(character_id: String) -> void:
 	_ensure_music_started()
 	selected_character = character_id
+	GameState.select_character(character_id)
 	start_button.disabled = false
 	if character_id == "michu":
 		status.text = "TRILITA PURA"

@@ -6,6 +6,12 @@ import struct
 import zlib
 
 
+EXPECTED_ANIMATION_SHEETS = {
+    Path("assets/characters/overworld/juan_overworld_animations.png"),
+    Path("assets/characters/overworld/michu_overworld_animations.png"),
+}
+
+
 def validate(path: Path) -> None:
     data = path.read_bytes()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -15,6 +21,7 @@ def validate(path: Path) -> None:
     compressed = bytearray()
     saw_end = False
     color_type = None
+    dimensions = None
     while offset < len(data):
         if offset + 12 > len(data):
             raise ValueError("truncated chunk")
@@ -35,6 +42,7 @@ def validate(path: Path) -> None:
         if kind == b"IHDR":
             if len(payload) != 13:
                 raise ValueError("invalid IHDR chunk")
+            dimensions = struct.unpack(">II", payload[:8])
             color_type = payload[9]
         if kind == b"IEND":
             saw_end = True
@@ -49,6 +57,14 @@ def validate(path: Path) -> None:
             "unsupported asset encoding: expected indexed or RGBA PNG "
             f"(type 3 or 6), got type {color_type}"
         )
+    if path in EXPECTED_ANIMATION_SHEETS:
+        if dimensions != (576, 512):
+            raise ValueError(
+                "invalid overworld animation sheet geometry: "
+                f"expected 576x512, got {dimensions}"
+            )
+        if color_type != 6:
+            raise ValueError("overworld animation sheets must use RGBA transparency")
 
 
 def main() -> None:

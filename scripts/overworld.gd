@@ -11,6 +11,14 @@ const GLOW_TEXTURE_SIZE := Vector2i(448, 288)
 const WARM_GLOW_COLOR := Color(1.0, 0.47, 0.08, 0.72)
 const MEIGAS_PINK_GLOW_COLOR := Color(1.0, 0.06, 0.62, 0.72)
 const MEIGAS_BLUE_GLOW_COLOR := Color(0.0, 0.70, 1.0, 0.68)
+const CHARACTER_FRAME_SIZE := Vector2i(96, 128)
+const CHARACTER_SHEET_COLUMNS := 6
+const CHARACTER_SHEET_ROWS := 4
+const DESTINATION_OFFSET := Vector2(0, 112)
+const LOCATION_SELECTION_RADIUS := 210.0
+const CLICK_DRAG_THRESHOLD := 18.0
+const MIN_CHARACTER_SCALE := 0.72
+const MAX_CHARACTER_SCALE := 1.0
 
 const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
@@ -23,6 +31,10 @@ const TAVERNS: Array[Texture2D] = [
 ]
 const PUB_MEIGAS := preload("res://assets/overworld/pub_meigas.png")
 const SUPERMERCADOS_TRUJILLO := preload("res://assets/overworld/supermercados_trujillo.png")
+const CHARACTER_SHEETS := {
+	&"juan": preload("res://assets/characters/overworld/juan_overworld_animations.png"),
+	&"michu": preload("res://assets/characters/overworld/michu_overworld_animations.png"),
+}
 const START_POSITION := Vector2(960, 3460)
 const CASTLE_POSITION := Vector2(960, 610)
 const STEP_POSITIONS: Array[Array] = [
@@ -42,10 +54,18 @@ const STEP_POSITIONS: Array[Array] = [
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
 @onready var fullscreen_button: TextureButton = $Interface/TopControls/FullscreenButton
 @onready var sound_button: TextureButton = $Interface/TopControls/SoundButton
+@onready var character_root: Node2D = $RouteCharacter
+@onready var character_sprite: AnimatedSprite2D = $RouteCharacter/Sprite
 
 var map_navigation_enabled := false
 var mouse_dragging := false
+var mouse_drag_distance := 0.0
+var touch_tracking := false
+var touch_drag_distance := 0.0
+var route_choice_enabled := false
+var character_moving := false
 var sound_enabled := true
+var route_locations: Array = []
 var warm_glow_texture: GradientTexture2D
 var meigas_pink_glow_texture: GradientTexture2D
 var meigas_blue_glow_texture: GradientTexture2D
@@ -64,18 +84,37 @@ func _ready() -> void:
 	curtain.color.a = 1.0
 	journey_label.modulate.a = 0.0
 	_generate_route()
+	_prepare_character()
 	_play_map_intro()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not map_navigation_enabled:
 		return
 
-	if event is InputEventScreenDrag:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			touch_tracking = true
+			touch_drag_distance = 0.0
+		else:
+			var was_tap := touch_tracking and touch_drag_distance <= CLICK_DRAG_THRESHOLD
+			touch_tracking = false
+			if was_tap:
+				_try_select_first_destination(event.position)
+	elif event is InputEventScreenDrag:
+		touch_drag_distance += event.relative.length()
 		_move_camera_from_drag(event.relative.y)
 		get_viewport().set_input_as_handled()
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		mouse_dragging = event.pressed
+		if event.pressed:
+			mouse_dragging = true
+			mouse_drag_distance = 0.0
+		else:
+			var was_click := mouse_dragging and mouse_drag_distance <= CLICK_DRAG_THRESHOLD
+			mouse_dragging = false
+			if was_click:
+				_try_select_first_destination(event.position)
 	elif event is InputEventMouseMotion and mouse_dragging:
+		mouse_drag_distance += event.relative.length()
 		_move_camera_from_drag(event.relative.y)
 		get_viewport().set_input_as_handled()
 
@@ -88,6 +127,7 @@ func _move_camera_from_drag(vertical_delta: float) -> void:
 
 func _generate_route() -> void:
 	_draw_connections()
+	route_locations.clear()
 
 	var node_count := 0
 	for step in STEP_POSITIONS:
@@ -99,6 +139,7 @@ func _generate_route() -> void:
 
 	var node_index := 0
 	for step_index in STEP_POSITIONS.size():
+		var step_locations: Array[Node2D] = []
 		for branch_index in STEP_POSITIONS[step_index].size():
 			var building_texture: Texture2D = TAVERNS.pick_random()
 			var location_kind := "tavern"
@@ -112,7 +153,9 @@ func _generate_route() -> void:
 			var location := Node2D.new()
 			location.name = "Step%02dNode%02d" % [step_index + 1, branch_index + 1]
 			location.position = STEP_POSITIONS[step_index][branch_index]
+			location.set_meta("location_kind", location_kind)
 			$RouteBuildings.add_child(location)
+			step_locations.append(location)
 
 			if location_kind == "tavern" or location_kind == "trujillo":
 				_add_glow(
@@ -142,6 +185,151 @@ func _generate_route() -> void:
 			building.z_index = 2
 			location.add_child(building)
 			node_index += 1
+		route_locations.append(step_locations)
+
+func _prepare_character() -> void:
+	var character_id: StringName = GameState.selected_character
+	if not CHARACTER_SHEETS.has(character_id):
+		character_id = &"michu"
+	var sheet: Texture2D = CHARACTER_SHEETS[character_id]
+	character_sprite.sprite_frames = _build_character_frames(sheet, character_id)
+	character_sprite.flip_h = false
+	character_sprite.play(&"idle")
+	character_root.position = START_POSITION
+	var start_scale := _perspective_scale(START_POSITION.y)
+	character_root.scale = Vector2.ONE * start_scale
+
+func _build_character_frames(sheet: Texture2D, character_id: StringName) -> SpriteFrames:
+	assert(
+		sheet.get_width() == CHARACTER_SHEET_COLUMNS * CHARACTER_FRAME_SIZE.x,
+		"La hoja del overworld debe tener seis columnas exactas"
+	)
+	assert(
+		sheet.get_height() == CHARACTER_SHEET_ROWS * CHARACTER_FRAME_SIZE.y,
+		"La hoja del overworld debe tener cuatro filas exactas"
+	)
+
+	var frames := SpriteFrames.new()
+	frames.remove_animation(&"default")
+	var idle_speed := 5.0 if character_id == &"michu" else 4.2
+	var walk_speed := 8.0 if character_id == &"michu" else 6.6
+	_add_sheet_animation(frames, sheet, &"idle", 0, 6, idle_speed, true)
+	_add_sheet_animation(frames, sheet, &"volteo", 1, 4, 8.0, false)
+	_add_sheet_animation(frames, sheet, &"caminar", 2, 4, walk_speed, true)
+	_add_sheet_animation(frames, sheet, &"volteo2", 3, 4, 8.0, false)
+	return frames
+
+func _add_sheet_animation(
+	frames: SpriteFrames,
+	sheet: Texture2D,
+	animation_name: StringName,
+	row: int,
+	frame_count: int,
+	speed: float,
+	looping: bool
+) -> void:
+	frames.add_animation(animation_name)
+	frames.set_animation_loop(animation_name, looping)
+	frames.set_animation_speed(animation_name, speed)
+	for column in frame_count:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = sheet
+		atlas.region = Rect2i(
+			column * CHARACTER_FRAME_SIZE.x,
+			row * CHARACTER_FRAME_SIZE.y,
+			CHARACTER_FRAME_SIZE.x,
+			CHARACTER_FRAME_SIZE.y
+		)
+		frames.add_frame(animation_name, atlas)
+
+func _perspective_scale(world_y: float) -> float:
+	var depth := inverse_lerp(CASTLE_POSITION.y, START_POSITION.y, world_y)
+	return lerpf(MIN_CHARACTER_SCALE, MAX_CHARACTER_SCALE, clampf(depth, 0.0, 1.0))
+
+func _try_select_first_destination(screen_position: Vector2) -> void:
+	if not route_choice_enabled or character_moving or route_locations.is_empty():
+		return
+
+	var world_position := get_canvas_transform().affine_inverse() * screen_position
+	var closest_location: Node2D
+	var closest_distance := INF
+	for location: Node2D in route_locations[0]:
+		var distance := world_position.distance_squared_to(location.position)
+		if distance < closest_distance:
+			closest_location = location
+			closest_distance = distance
+
+	if closest_location != null and closest_distance <= LOCATION_SELECTION_RADIUS * LOCATION_SELECTION_RADIUS:
+		_travel_to_location(closest_location)
+
+func _enable_first_destination_choice() -> void:
+	if route_locations.is_empty():
+		return
+	route_choice_enabled = true
+	for location: Node2D in route_locations[0]:
+		var building: Sprite2D = location.get_node("Building")
+		var pulse := create_tween().set_loops()
+		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		pulse.tween_property(building, "scale", LOCATION_SCALE * 1.06, 0.72)
+		pulse.parallel().tween_property(building, "modulate", Color(1.16, 1.12, 1.02, 1.0), 0.72)
+		pulse.tween_property(building, "scale", LOCATION_SCALE, 0.72)
+		pulse.parallel().tween_property(building, "modulate", Color.WHITE, 0.72)
+		location.set_meta("choice_pulse", pulse)
+
+func _disable_first_destination_choice() -> void:
+	route_choice_enabled = false
+	if route_locations.is_empty():
+		return
+	for location: Node2D in route_locations[0]:
+		var pulse = location.get_meta("choice_pulse", null)
+		if pulse is Tween:
+			pulse.kill()
+		location.remove_meta("choice_pulse")
+		var building: Sprite2D = location.get_node("Building")
+		building.scale = LOCATION_SCALE
+		building.modulate = Color.WHITE
+
+func _travel_to_location(location: Node2D) -> void:
+	character_moving = true
+	map_navigation_enabled = false
+	mouse_dragging = false
+	touch_tracking = false
+	_disable_first_destination_choice()
+
+	var destination := location.position + DESTINATION_OFFSET
+	character_sprite.flip_h = destination.x < character_root.position.x
+	journey_label.text = "RUMBO AL PRIMER LOCAL..."
+	journey_label.modulate.a = 1.0
+
+	await _play_character_transition(&"volteo")
+	character_sprite.play(&"caminar")
+	var distance := character_root.position.distance_to(destination)
+	var travel_duration := clampf(distance / 155.0, 1.9, 3.0)
+	var destination_scale := _perspective_scale(destination.y)
+	var travel := create_tween().set_parallel(true)
+	travel.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	travel.tween_property(character_root, "position", destination, travel_duration)
+	travel.tween_property(
+		character_root,
+		"scale",
+		Vector2.ONE * destination_scale,
+		travel_duration
+	)
+	await travel.finished
+
+	await _play_character_transition(&"volteo2")
+	character_sprite.flip_h = false
+	character_sprite.play(&"idle")
+	character_moving = false
+	map_navigation_enabled = true
+	journey_label.text = "DESTINO ALCANZADO"
+	var finish_message := create_tween()
+	finish_message.tween_interval(1.8)
+	finish_message.tween_property(journey_label, "modulate:a", 0.0, 0.45)
+
+func _play_character_transition(animation_name: StringName) -> void:
+	character_sprite.play(animation_name)
+	await character_sprite.animation_finished
 
 func _prepare_location_glows() -> void:
 	warm_glow_texture = _create_glow_texture(WARM_GLOW_COLOR)
@@ -247,11 +435,12 @@ func _play_map_intro() -> void:
 	finish.tween_property(journey_label, "modulate:a", 0.0, 0.55)
 	await finish.finished
 	map_navigation_enabled = true
-	journey_label.text = "ARRASTRA PARA EXPLORAR EL MAPA"
+	_enable_first_destination_choice()
+	journey_label.text = "TOCA UN LOCAL PARA CAMINAR"
 	var hint := create_tween()
 	hint.tween_property(journey_label, "modulate:a", 1.0, 0.35)
-	hint.tween_interval(2.4)
-	hint.tween_property(journey_label, "modulate:a", 0.0, 0.45)
+	hint.tween_interval(3.2)
+	hint.tween_property(journey_label, "modulate:a", 0.62, 0.45)
 
 func _toggle_fullscreen() -> void:
 	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
