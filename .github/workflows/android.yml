@@ -1,0 +1,79 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  GODOT_VERSION: 4.7.1
+  GODOT_STATUS: stable
+
+jobs:
+  build:
+    name: Export debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Download Godot and export templates
+        shell: bash
+        run: |
+          curl -fL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
+          unzip -q godot.zip -d godot-bin
+          chmod +x "godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64"
+          curl -fL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
+          unzip -q templates.tpz -d templates
+          cp -R templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+
+      - name: Configure Godot Android paths
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Import and validate project
+        run: godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64 --headless --editor --path . --quit
+
+      - name: Export APK
+        run: |
+          mkdir -p build
+          godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64 --headless --path . --export-debug "Android Debug" build/vampiros-debug.apk
+
+      - name: Verify APK
+        run: |
+          test -s build/vampiros-debug.apk
+          "${ANDROID_SDK_ROOT}/build-tools/35.0.0/aapt" dump badging build/vampiros-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vampiros-android-debug
+          path: build/vampiros-debug.apk
+          if-no-files-found: error
+          retention-days: 14
