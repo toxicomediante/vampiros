@@ -3,6 +3,13 @@ extends Node2D
 const CASTLE_CAMERA_Y := 540.0
 const DEPARTURE_CAMERA_Y := 3210.0
 const PAN_DURATION := 8.0
+const MIN_CAMERA_Y := CASTLE_CAMERA_Y
+const MAX_CAMERA_Y := DEPARTURE_CAMERA_Y
+
+const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
+const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
+const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
+const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 const TAVERNS: Array[Texture2D] = [
 	preload("res://assets/overworld/taberna_01.png"),
 	preload("res://assets/overworld/taberna_02.png"),
@@ -27,16 +34,42 @@ const STEP_POSITIONS: Array[Array] = [
 @onready var curtain: ColorRect = $Interface/Curtain
 @onready var journey_label: Label = $Interface/JourneyLabel
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
+@onready var fullscreen_button: TextureButton = $Interface/TopControls/FullscreenButton
+@onready var sound_button: TextureButton = $Interface/TopControls/SoundButton
+
+var map_navigation_enabled := false
+var mouse_dragging := false
+var sound_enabled := true
 
 func _ready() -> void:
 	randomize()
+	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	if background_music.stream is AudioStreamWAV:
 		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	fullscreen_button.pressed.connect(_toggle_fullscreen)
+	sound_button.pressed.connect(_toggle_sound)
+	_refresh_control_icons()
 	camera.position = Vector2(960.0, CASTLE_CAMERA_Y)
 	curtain.color.a = 1.0
 	journey_label.modulate.a = 0.0
 	_generate_route()
 	_play_map_intro()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not map_navigation_enabled:
+		return
+
+	if event is InputEventScreenDrag:
+		_move_camera_from_drag(event.relative.y)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		mouse_dragging = event.pressed
+	elif event is InputEventMouseMotion and mouse_dragging:
+		_move_camera_from_drag(event.relative.y)
+		get_viewport().set_input_as_handled()
+
+func _move_camera_from_drag(vertical_delta: float) -> void:
+	camera.position.y = clampf(camera.position.y - vertical_delta, MIN_CAMERA_Y, MAX_CAMERA_Y)
 
 func _generate_route() -> void:
 	_draw_connections()
@@ -120,3 +153,33 @@ func _play_map_intro() -> void:
 
 	var finish := create_tween()
 	finish.tween_property(journey_label, "modulate:a", 0.0, 0.55)
+	await finish.finished
+	map_navigation_enabled = true
+	journey_label.text = "ARRASTRA PARA EXPLORAR EL MAPA"
+	var hint := create_tween()
+	hint.tween_property(journey_label, "modulate:a", 1.0, 0.35)
+	hint.tween_interval(2.4)
+	hint.tween_property(journey_label, "modulate:a", 0.0, 0.45)
+
+func _toggle_fullscreen() -> void:
+	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_WINDOWED if is_fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN
+	)
+	await get_tree().process_frame
+	_refresh_control_icons()
+
+func _toggle_sound() -> void:
+	sound_enabled = not sound_enabled
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), not sound_enabled)
+	background_music.stream_paused = not sound_enabled
+	if sound_enabled and not background_music.playing:
+		background_music.play()
+	_refresh_control_icons()
+
+func _refresh_control_icons() -> void:
+	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+	fullscreen_button.texture_normal = WINDOWED_TEXTURE if is_fullscreen else FULLSCREEN_TEXTURE
+	fullscreen_button.tooltip_text = "SALIR DE PANTALLA COMPLETA" if is_fullscreen else "PANTALLA COMPLETA"
+	sound_button.texture_normal = SOUND_ON_TEXTURE if sound_enabled else SOUND_OFF_TEXTURE
+	sound_button.tooltip_text = "DESACTIVAR SONIDO" if sound_enabled else "ACTIVAR SONIDO"
