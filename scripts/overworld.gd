@@ -3,6 +3,7 @@ extends Node2D
 const CASTLE_CAMERA_Y := 540.0
 const DEPARTURE_CAMERA_Y := 3210.0
 const PAN_DURATION := 8.0
+const DRAG_SENSITIVITY := 0.38
 const MIN_CAMERA_Y := CASTLE_CAMERA_Y
 const MAX_CAMERA_Y := DEPARTURE_CAMERA_Y
 
@@ -69,7 +70,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 func _move_camera_from_drag(vertical_delta: float) -> void:
-	camera.position.y = clampf(camera.position.y - vertical_delta, MIN_CAMERA_Y, MAX_CAMERA_Y)
+	camera.position.y = clampf(
+		camera.position.y - vertical_delta * DRAG_SENSITIVITY,
+		MIN_CAMERA_Y,
+		MAX_CAMERA_Y
+	)
 
 func _generate_route() -> void:
 	_draw_connections()
