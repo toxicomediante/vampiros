@@ -8,7 +8,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_hover.png" id="6_start_hover"]
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_pressed.png" id="7_start_pressed"]
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_disabled.png" id="8_start_disabled"]
-[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.ogg" id="9_music"]
+[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.wav" id="9_music"]
 
 [sub_resource type="Theme" id="PixelTheme"]
 default_font = ExtResource("4_pixel_font")
