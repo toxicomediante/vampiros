@@ -61,11 +61,11 @@ func _select_character(character_id: String) -> void:
 	selected_character = character_id
 	start_button.disabled = false
 	if character_id == "michu":
-		status.text = "Trilita pura"
+		status.text = "TRILITA PURA"
 		_set_selected(michu_sprite, michu_name, true)
 		_set_selected(juan_sprite, juan_name, false)
 	else:
-		status.text = "Ya dormirás en la caja"
+		status.text = "YA DORMIRÁS EN LA CAJA"
 		_set_selected(michu_sprite, michu_name, false)
 		_set_selected(juan_sprite, juan_name, true)
 
