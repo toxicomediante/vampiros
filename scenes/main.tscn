@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=11 format=3]
 
 [ext_resource type="Script" path="res://scripts/character_select.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/backgrounds/character_select_night.png" id="2_bg"]
@@ -8,6 +8,7 @@
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_hover.png" id="6_start_hover"]
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_pressed.png" id="7_start_pressed"]
 [ext_resource type="Texture2D" path="res://assets/ui/start_button_disabled.png" id="8_start_disabled"]
+[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.ogg" id="9_music"]
 
 [sub_resource type="Theme" id="PixelTheme"]
 default_font = ExtResource("4_pixel_font")
@@ -22,6 +23,11 @@ grow_horizontal = 2
 grow_vertical = 2
 theme = SubResource("PixelTheme")
 script = ExtResource("1_script")
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("9_music")
+volume_db = -11.0
+autoplay = true
 
 [node name="Background" type="TextureRect" parent="."]
 layout_mode = 1
