@@ -13,10 +13,15 @@ const IDLE_FPS := 5.0
 @onready var juan_name: Label = $JuanName
 @onready var start_button: TextureButton = $StartButton
 @onready var status: Label = $Status
+@onready var background_music: AudioStreamPlayer = $BackgroundMusic
 
 var selected_character := ""
 
 func _ready() -> void:
+	if background_music.stream is AudioStreamOggVorbis:
+		background_music.stream.loop = true
+	if not background_music.playing:
+		background_music.play()
 	michu_sprite.sprite_frames = _build_idle_frames(MICHU_SHEET, 6)
 	juan_sprite.sprite_frames = _build_idle_frames(JUAN_SHEET, 6)
 	michu_sprite.play("idle")
@@ -52,6 +57,7 @@ func _play_intro() -> void:
 	tween.tween_property(logo, "modulate:a", 1.0, 0.55)
 
 func _select_character(character_id: String) -> void:
+	_ensure_music_started()
 	selected_character = character_id
 	start_button.disabled = false
 	if character_id == "michu":
@@ -73,5 +79,11 @@ func _set_selected(sprite: AnimatedSprite2D, label: Label, selected: bool) -> vo
 	tween.tween_property(label, "modulate", Color.WHITE if selected else Color(0.65, 0.65, 0.72, 0.75), 0.18)
 
 func _start_night() -> void:
+	_ensure_music_started()
 	status.text = "%s ESTÁ LISTO" % selected_character.to_upper()
 	start_button.disabled = true
+
+func _ensure_music_started() -> void:
+	# Web browsers may defer autoplay until the player's first interaction.
+	if not background_music.playing:
+		background_music.play()
