@@ -1,12 +1,10 @@
 name: Deploy Web Preview
-# Redeploy after enabling public GitHub Pages.
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -14,24 +12,25 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: github-pages
+  cancel-in-progress: false
 
 env:
   GODOT_VERSION: 4.7.1
 
 jobs:
   build:
-    name: Export and deploy Godot Web
+    name: Build Godot Web
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v5
 
       - name: Configure Godot
         uses: chickensoft-games/setup-godot@v2
@@ -40,14 +39,8 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Show Godot version
-        run: godot --version
-
       - name: Import project
         run: godot --headless --editor --path . --import --quit
-
-      - name: Validate project
-        run: godot --headless --editor --path . --quit-after 2
 
       - name: Export web build
         shell: bash
@@ -58,12 +51,20 @@ jobs:
           touch build/web/.nojekyll
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
+  deploy:
+    name: Deploy GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
       - name: Deploy to GitHub Pages
-        if: github.event_name != 'pull_request'
         id: deployment
         uses: actions/deploy-pages@v4
