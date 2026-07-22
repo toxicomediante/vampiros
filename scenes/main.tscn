@@ -61,11 +61,11 @@ pivot_offset = Vector2(500, 170)
 
 [node name="MichuSprite" type="AnimatedSprite2D" parent="."]
 position = Vector2(425, 695)
-scale = Vector2(0.9, 0.9)
+scale = Vector2(1.8, 1.8)
 
 [node name="JuanSprite" type="AnimatedSprite2D" parent="."]
 position = Vector2(1495, 695)
-scale = Vector2(0.9, 0.9)
+scale = Vector2(1.8, 1.8)
 
 [node name="MichuButton" type="Button" parent="."]
 layout_mode = 0

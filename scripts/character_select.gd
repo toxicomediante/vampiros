@@ -63,7 +63,7 @@ func _select_character(character_id: String) -> void:
 		_set_selected(juan_sprite, juan_name, true)
 
 func _set_selected(sprite: AnimatedSprite2D, label: Label, selected: bool) -> void:
-	var target_scale := Vector2(0.96, 0.96) if selected else Vector2(0.86, 0.86)
+	var target_scale := Vector2(1.92, 1.92) if selected else Vector2(1.72, 1.72)
 	var target_color := Color.WHITE if selected else Color(0.55, 0.6, 0.72, 0.72)
 	var tween := create_tween().set_parallel(true)
 	tween.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)

@@ -14,6 +14,7 @@ def validate(path: Path) -> None:
     offset = 8
     compressed = bytearray()
     saw_end = False
+    color_type = None
     while offset < len(data):
         if offset + 12 > len(data):
             raise ValueError("truncated chunk")
@@ -31,6 +32,10 @@ def validate(path: Path) -> None:
             raise ValueError(f"CRC mismatch in {kind.decode('ascii', 'replace')}")
         if kind == b"IDAT":
             compressed.extend(payload)
+        if kind == b"IHDR":
+            if len(payload) != 13:
+                raise ValueError("invalid IHDR chunk")
+            color_type = payload[9]
         if kind == b"IEND":
             saw_end = True
             break
@@ -39,6 +44,10 @@ def validate(path: Path) -> None:
     if not saw_end:
         raise ValueError("missing IEND chunk")
     zlib.decompress(compressed)
+    if color_type != 6:
+        raise ValueError(
+            f"unsupported asset encoding: expected RGBA PNG (type 6), got type {color_type}"
+        )
 
 
 def main() -> None:
