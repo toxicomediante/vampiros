@@ -6,11 +6,11 @@ const PAN_DURATION := 8.0
 const DRAG_SENSITIVITY := 0.38
 const MIN_CAMERA_Y := CASTLE_CAMERA_Y
 const MAX_CAMERA_Y := DEPARTURE_CAMERA_Y
-const LOCATION_SCALE := Vector2(0.50, 0.50)
-const GLOW_TEXTURE_SIZE := Vector2i(384, 256)
-const WARM_GLOW_COLOR := Color(1.0, 0.47, 0.08, 0.48)
-const MEIGAS_PINK_GLOW_COLOR := Color(1.0, 0.06, 0.62, 0.48)
-const MEIGAS_BLUE_GLOW_COLOR := Color(0.0, 0.70, 1.0, 0.46)
+const LOCATION_SCALE := Vector2(0.54, 0.54)
+const GLOW_TEXTURE_SIZE := Vector2i(448, 288)
+const WARM_GLOW_COLOR := Color(1.0, 0.47, 0.08, 0.72)
+const MEIGAS_PINK_GLOW_COLOR := Color(1.0, 0.06, 0.62, 0.72)
+const MEIGAS_BLUE_GLOW_COLOR := Color(0.0, 0.70, 1.0, 0.68)
 
 const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
@@ -26,7 +26,7 @@ const SUPERMERCADOS_TRUJILLO := preload("res://assets/overworld/supermercados_tr
 const START_POSITION := Vector2(960, 3460)
 const CASTLE_POSITION := Vector2(960, 610)
 const STEP_POSITIONS: Array[Array] = [
-	[Vector2(785, 3025), Vector2(1115, 3025)],
+	[Vector2(775, 3025), Vector2(1125, 3025)],
 	[Vector2(555, 2725), Vector2(1370, 2725)],
 	[Vector2(650, 2405), Vector2(1260, 2405)],
 	[Vector2(515, 2075), Vector2(955, 2075), Vector2(1420, 2075)],
@@ -114,24 +114,24 @@ func _generate_route() -> void:
 			location.position = STEP_POSITIONS[step_index][branch_index]
 			$RouteBuildings.add_child(location)
 
-			if location_kind == "tavern":
+			if location_kind == "tavern" or location_kind == "trujillo":
 				_add_glow(
 					location.position + Vector2(0, 18),
 					warm_glow_texture,
-					Vector2(1.22, 0.92),
+					Vector2(1.38, 1.08),
 					0.0
 				)
 			elif location_kind == "meigas":
 				_add_glow(
-					location.position + Vector2(-58, 4),
+					location.position + Vector2(-64, 4),
 					meigas_pink_glow_texture,
-					Vector2(0.92, 0.88),
+					Vector2(1.06, 1.04),
 					0.0
 				)
 				_add_glow(
-					location.position + Vector2(58, 4),
+					location.position + Vector2(64, 4),
 					meigas_blue_glow_texture,
-					Vector2(0.92, 0.88),
+					Vector2(1.06, 1.04),
 					0.85
 				)
 
@@ -152,7 +152,7 @@ func _prepare_location_glows() -> void:
 
 func _create_glow_texture(glow_color: Color) -> GradientTexture2D:
 	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 0.38, 0.72, 1.0])
+	gradient.offsets = PackedFloat32Array([0.0, 0.44, 0.76, 1.0])
 	gradient.colors = PackedColorArray([
 		glow_color,
 		Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a * 0.62),
@@ -178,19 +178,19 @@ func _add_glow(
 	var glow := Sprite2D.new()
 	glow.texture = glow_texture
 	glow.position = world_position
-	glow.scale = base_scale * 0.96
+	glow.scale = base_scale * 0.93
 	glow.material = additive_glow_material
-	glow.modulate.a = 0.82
+	glow.modulate.a = 0.86
 	$RouteGlows.add_child(glow)
 
 	var pulse := create_tween().set_loops()
 	pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	if phase_delay > 0.0:
 		pulse.tween_interval(phase_delay)
-	pulse.tween_property(glow, "scale", base_scale * 1.04, 1.75)
-	pulse.parallel().tween_property(glow, "modulate:a", 1.0, 1.75)
-	pulse.tween_property(glow, "scale", base_scale * 0.96, 1.75)
-	pulse.parallel().tween_property(glow, "modulate:a", 0.82, 1.75)
+	pulse.tween_property(glow, "scale", base_scale * 1.10, 1.65)
+	pulse.parallel().tween_property(glow, "modulate:a", 1.0, 1.65)
+	pulse.tween_property(glow, "scale", base_scale * 0.93, 1.65)
+	pulse.parallel().tween_property(glow, "modulate:a", 0.86, 1.65)
 
 func _draw_connections() -> void:
 	_connect_layers([START_POSITION], STEP_POSITIONS[0])
