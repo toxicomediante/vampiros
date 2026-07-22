@@ -26,6 +26,7 @@ var selected_character := ""
 var sound_enabled := true
 
 func _ready() -> void:
+	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	if background_music.stream is AudioStreamWAV:
 		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	if not background_music.playing:
@@ -114,6 +115,7 @@ func _toggle_fullscreen() -> void:
 
 func _toggle_sound() -> void:
 	sound_enabled = not sound_enabled
+	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), not sound_enabled)
 	background_music.stream_paused = not sound_enabled
 	if sound_enabled:
 		_ensure_music_started()
