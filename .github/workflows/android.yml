@@ -10,13 +10,12 @@ permissions:
 
 env:
   GODOT_VERSION: 4.7.1
-  GODOT_STATUS: stable
 
 jobs:
   build:
     name: Export debug APK
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -32,18 +31,25 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android packages
-        run: sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
-      - name: Download Godot and export templates
         shell: bash
         run: |
-          curl -fL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64.zip"
-          unzip -q godot.zip -d godot-bin
-          chmod +x "godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64"
-          curl -fL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-${GODOT_STATUS}/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_export_templates.tpz"
-          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}"
-          unzip -q templates.tpz -d templates
-          cp -R templates/templates/. "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.${GODOT_STATUS}/"
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Configure Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+          include-templates: true
+
+      - name: Create Android debug keystore
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v               -keystore "$HOME/.android/debug.keystore"               -storepass android               -alias androiddebugkey               -keypass android               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Android Debug,O=Android,C=US"
+          fi
 
       - name: Configure Godot Android paths
         shell: bash
@@ -57,18 +63,30 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
-      - name: Import and validate project
-        run: godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64 --headless --editor --path . --quit
+      - name: Show tool versions
+        shell: bash
+        run: |
+          godot --version
+          java -version
+          sdkmanager --version
+
+      - name: Import project
+        run: godot --headless --editor --path . --import --quit
+
+      - name: Validate project
+        run: godot --headless --editor --path . --quit-after 2
 
       - name: Export APK
+        shell: bash
         run: |
           mkdir -p build
-          godot-bin/Godot_v${GODOT_VERSION}-${GODOT_STATUS}_linux.x86_64 --headless --path . --export-debug "Android Debug" build/vampiros-debug.apk
+          godot --headless --path . --export-debug "Android Debug" build/vampiros-debug.apk
 
       - name: Verify APK
+        shell: bash
         run: |
           test -s build/vampiros-debug.apk
-          "${ANDROID_SDK_ROOT}/build-tools/35.0.0/aapt" dump badging build/vampiros-debug.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging build/vampiros-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
