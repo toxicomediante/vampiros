@@ -27,6 +27,8 @@ position = Vector2(0, 1876)
 texture = ExtResource("3_map_bottom")
 centered = false
 
+[node name="RouteGlows" type="Node2D" parent="."]
+
 [node name="RouteLines" type="Node2D" parent="."]
 
 [node name="RouteBuildings" type="Node2D" parent="."]

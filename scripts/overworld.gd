@@ -6,6 +6,11 @@ const PAN_DURATION := 8.0
 const DRAG_SENSITIVITY := 0.38
 const MIN_CAMERA_Y := CASTLE_CAMERA_Y
 const MAX_CAMERA_Y := DEPARTURE_CAMERA_Y
+const LOCATION_SCALE := Vector2(0.50, 0.50)
+const GLOW_TEXTURE_SIZE := Vector2i(384, 256)
+const WARM_GLOW_COLOR := Color(1.0, 0.47, 0.08, 0.48)
+const MEIGAS_PINK_GLOW_COLOR := Color(1.0, 0.06, 0.62, 0.48)
+const MEIGAS_BLUE_GLOW_COLOR := Color(0.0, 0.70, 1.0, 0.46)
 
 const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
@@ -41,9 +46,14 @@ const STEP_POSITIONS: Array[Array] = [
 var map_navigation_enabled := false
 var mouse_dragging := false
 var sound_enabled := true
+var warm_glow_texture: GradientTexture2D
+var meigas_pink_glow_texture: GradientTexture2D
+var meigas_blue_glow_texture: GradientTexture2D
+var additive_glow_material: CanvasItemMaterial
 
 func _ready() -> void:
 	randomize()
+	_prepare_location_glows()
 	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	if background_music.stream is AudioStreamWAV:
 		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
@@ -91,19 +101,96 @@ func _generate_route() -> void:
 	for step_index in STEP_POSITIONS.size():
 		for branch_index in STEP_POSITIONS[step_index].size():
 			var building_texture: Texture2D = TAVERNS.pick_random()
+			var location_kind := "tavern"
 			if node_index == meigas_node:
 				building_texture = PUB_MEIGAS
+				location_kind = "meigas"
 			elif node_index == trujillo_node:
 				building_texture = SUPERMERCADOS_TRUJILLO
+				location_kind = "trujillo"
+
+			var location := Node2D.new()
+			location.name = "Step%02dNode%02d" % [step_index + 1, branch_index + 1]
+			location.position = STEP_POSITIONS[step_index][branch_index]
+			$RouteBuildings.add_child(location)
+
+			if location_kind == "tavern":
+				_add_glow(
+					location.position + Vector2(0, 18),
+					warm_glow_texture,
+					Vector2(1.22, 0.92),
+					0.0
+				)
+			elif location_kind == "meigas":
+				_add_glow(
+					location.position + Vector2(-58, 4),
+					meigas_pink_glow_texture,
+					Vector2(0.92, 0.88),
+					0.0
+				)
+				_add_glow(
+					location.position + Vector2(58, 4),
+					meigas_blue_glow_texture,
+					Vector2(0.92, 0.88),
+					0.85
+				)
 
 			var building := Sprite2D.new()
-			building.name = "Step%02dNode%02d" % [step_index + 1, branch_index + 1]
+			building.name = "Building"
 			building.texture = building_texture
-			building.position = STEP_POSITIONS[step_index][branch_index]
-			building.scale = Vector2(0.42, 0.42)
+			building.scale = LOCATION_SCALE
 			building.z_index = 2
-			$RouteBuildings.add_child(building)
+			location.add_child(building)
 			node_index += 1
+
+func _prepare_location_glows() -> void:
+	warm_glow_texture = _create_glow_texture(WARM_GLOW_COLOR)
+	meigas_pink_glow_texture = _create_glow_texture(MEIGAS_PINK_GLOW_COLOR)
+	meigas_blue_glow_texture = _create_glow_texture(MEIGAS_BLUE_GLOW_COLOR)
+	additive_glow_material = CanvasItemMaterial.new()
+	additive_glow_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+
+func _create_glow_texture(glow_color: Color) -> GradientTexture2D:
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.38, 0.72, 1.0])
+	gradient.colors = PackedColorArray([
+		glow_color,
+		Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a * 0.62),
+		Color(glow_color.r, glow_color.g, glow_color.b, glow_color.a * 0.18),
+		Color(glow_color.r, glow_color.g, glow_color.b, 0.0),
+	])
+
+	var texture := GradientTexture2D.new()
+	texture.width = GLOW_TEXTURE_SIZE.x
+	texture.height = GLOW_TEXTURE_SIZE.y
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	return texture
+
+func _add_glow(
+	world_position: Vector2,
+	glow_texture: GradientTexture2D,
+	base_scale: Vector2,
+	phase_delay: float
+) -> void:
+	var glow := Sprite2D.new()
+	glow.texture = glow_texture
+	glow.position = world_position
+	glow.scale = base_scale * 0.96
+	glow.material = additive_glow_material
+	glow.modulate.a = 0.82
+	$RouteGlows.add_child(glow)
+
+	var pulse := create_tween().set_loops()
+	pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	if phase_delay > 0.0:
+		pulse.tween_interval(phase_delay)
+	pulse.tween_property(glow, "scale", base_scale * 1.04, 1.75)
+	pulse.parallel().tween_property(glow, "modulate:a", 1.0, 1.75)
+	pulse.tween_property(glow, "scale", base_scale * 0.96, 1.75)
+	pulse.parallel().tween_property(glow, "modulate:a", 0.82, 1.75)
 
 func _draw_connections() -> void:
 	_connect_layers([START_POSITION], STEP_POSITIONS[0])
