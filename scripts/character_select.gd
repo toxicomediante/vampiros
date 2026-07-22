@@ -28,15 +28,16 @@ func _ready() -> void:
 	_play_intro()
 
 func _build_idle_frames(sheet: Texture2D, frame_count: int) -> SpriteFrames:
+	assert(sheet.get_width() % frame_count == 0, "La hoja debe contener celdas de igual anchura")
 	var frames := SpriteFrames.new()
 	frames.add_animation("idle")
 	frames.set_animation_loop("idle", true)
 	frames.set_animation_speed("idle", IDLE_FPS)
-	var frame_width := sheet.get_width() / frame_count
+	var frame_width: int = sheet.get_width() / frame_count
 	for index in frame_count:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = sheet
-		atlas.region = Rect2(index * frame_width, 0, frame_width, sheet.get_height())
+		atlas.region = Rect2i(index * frame_width, 0, frame_width, sheet.get_height())
 		frames.add_frame("idle", atlas)
 	return frames
 
