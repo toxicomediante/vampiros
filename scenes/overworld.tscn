@@ -18,6 +18,8 @@ texture = ExtResource("2_map")
 centered = false
 scale = Vector2(0.713489, 0.713489)
 
+[node name="RouteLines" type="Node2D" parent="."]
+
 [node name="RouteBuildings" type="Node2D" parent="."]
 
 [node name="Camera2D" type="Camera2D" parent="."]
