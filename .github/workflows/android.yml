@@ -72,6 +72,14 @@ jobs:
           java -version
           sdkmanager --version
 
+      - name: Generate original background music
+        shell: bash
+        run: |
+          python3 tools/generate_night_drive.py
+          ffmpeg -y -hide_banner -loglevel error -i assets/audio/neon_blood_drive.wav -c:a libvorbis -q:a 5 assets/audio/neon_blood_drive.ogg
+          rm assets/audio/neon_blood_drive.wav
+          test -s assets/audio/neon_blood_drive.ogg
+
       - name: Import project
         run: godot --headless --editor --path . --import --quit
 
