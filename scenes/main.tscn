@@ -117,10 +117,10 @@ horizontal_alignment = 1
 
 [node name="StartButton" type="TextureButton" parent="."]
 layout_mode = 0
-offset_left = 537.0
-offset_top = 830.0
-offset_right = 1383.0
-offset_bottom = 1063.0
+offset_left = 660.0
+offset_top = 875.0
+offset_right = 1260.0
+offset_bottom = 1040.0
 focus_mode = 0
 texture_normal = ExtResource("5_start_normal")
 texture_pressed = ExtResource("7_start_pressed")
@@ -132,9 +132,9 @@ stretch_mode = 0
 [node name="Status" type="Label" parent="."]
 layout_mode = 0
 offset_left = 690.0
-offset_top = 815.0
+offset_top = 790.0
 offset_right = 1230.0
-offset_bottom = 875.0
+offset_bottom = 835.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.78, 0.55, 1)
 theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.9)
