@@ -39,6 +39,9 @@ jobs:
           use-dotnet: false
           include-templates: true
 
+      - name: Validate PNG assets
+        run: python3 tools/validate_pngs.py
+
       - name: Import project
         run: godot --headless --editor --path . --import --quit
 
