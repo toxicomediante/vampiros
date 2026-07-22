@@ -1,0 +1,50 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/overworld.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/overworld/overworld_map.webp" id="2_map"]
+[ext_resource type="FontFile" path="res://assets/fonts/press-start-2p-latin-400-normal.woff2" id="8_font"]
+[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.wav" id="9_music"]
+
+[node name="Overworld" type="Node2D"]
+script = ExtResource("1_script")
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("9_music")
+volume_db = -11.0
+autoplay = true
+
+[node name="Map" type="Sprite2D" parent="."]
+texture = ExtResource("2_map")
+centered = false
+scale = Vector2(0.713489, 0.713489)
+
+[node name="RouteBuildings" type="Node2D" parent="."]
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(960, 540)
+position_smoothing_enabled = false
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="JourneyLabel" type="Label" parent="Interface"]
+offset_left = 510.0
+offset_top = 62.0
+offset_right = 1410.0
+offset_bottom = 116.0
+theme_override_colors/font_color = Color(1, 0.82, 0.57, 1)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.95)
+theme_override_constants/shadow_offset_x = 4
+theme_override_constants/shadow_offset_y = 4
+theme_override_fonts/font = ExtResource("8_font")
+theme_override_font_sizes/font_size = 24
+text = "EL CASTILLO AGUARDA..."
+horizontal_alignment = 1
+
+[node name="Curtain" type="ColorRect" parent="Interface"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.01, 0.02, 0.07, 1)

@@ -93,6 +93,10 @@ func _start_night() -> void:
 	_ensure_music_started()
 	status.text = "%s ESTÁ LISTO" % selected_character.to_upper()
 	start_button.disabled = true
+	var transition := create_tween()
+	transition.tween_property(self, "modulate:a", 0.0, 0.45)
+	await transition.finished
+	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 func _ensure_music_started() -> void:
 	# Web browsers may defer autoplay until the player's first interaction.
