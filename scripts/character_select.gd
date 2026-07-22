@@ -18,8 +18,8 @@ const IDLE_FPS := 5.0
 var selected_character := ""
 
 func _ready() -> void:
-	if background_music.stream is AudioStreamOggVorbis:
-		background_music.stream.loop = true
+	if background_music.stream is AudioStreamWAV:
+		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	if not background_music.playing:
 		background_music.play()
 	michu_sprite.sprite_frames = _build_idle_frames(MICHU_SHEET, 6)
