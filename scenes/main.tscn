@@ -4,54 +4,14 @@
 [ext_resource type="Texture2D" path="res://assets/backgrounds/character_select_night.png" id="2_bg"]
 [ext_resource type="Texture2D" path="res://assets/ui/vampiros_logo.png" id="3_logo"]
 [ext_resource type="FontFile" path="res://assets/fonts/press-start-2p-latin-400-normal.woff2" id="4_pixel_font"]
+[ext_resource type="Texture2D" path="res://assets/ui/start_button.png" id="5_start_normal"]
+[ext_resource type="Texture2D" path="res://assets/ui/start_button_hover.png" id="6_start_hover"]
+[ext_resource type="Texture2D" path="res://assets/ui/start_button_pressed.png" id="7_start_pressed"]
+[ext_resource type="Texture2D" path="res://assets/ui/start_button_disabled.png" id="8_start_disabled"]
 
 [sub_resource type="Theme" id="PixelTheme"]
 default_font = ExtResource("4_pixel_font")
 default_font_size = 24
-
-[sub_resource type="StyleBoxFlat" id="StartNormal"]
-bg_color = Color(0.36, 0.035, 0.045, 1)
-border_width_left = 8
-border_width_top = 8
-border_width_right = 8
-border_width_bottom = 8
-border_color = Color(0.94, 0.48, 0.18, 1)
-shadow_color = Color(0.055, 0.008, 0.016, 0.95)
-shadow_size = 9
-shadow_offset = Vector2(8, 10)
-
-[sub_resource type="StyleBoxFlat" id="StartHover"]
-bg_color = Color(0.5, 0.055, 0.055, 1)
-border_width_left = 8
-border_width_top = 8
-border_width_right = 8
-border_width_bottom = 8
-border_color = Color(1, 0.7, 0.27, 1)
-shadow_color = Color(0.055, 0.008, 0.016, 0.95)
-shadow_size = 9
-shadow_offset = Vector2(8, 10)
-
-[sub_resource type="StyleBoxFlat" id="StartPressed"]
-bg_color = Color(0.24, 0.018, 0.025, 1)
-border_width_left = 8
-border_width_top = 11
-border_width_right = 8
-border_width_bottom = 5
-border_color = Color(0.96, 0.36, 0.13, 1)
-shadow_color = Color(0.055, 0.008, 0.016, 0.95)
-shadow_size = 4
-shadow_offset = Vector2(4, 5)
-
-[sub_resource type="StyleBoxFlat" id="StartDisabled"]
-bg_color = Color(0.12, 0.075, 0.09, 0.94)
-border_width_left = 8
-border_width_top = 8
-border_width_right = 8
-border_width_bottom = 8
-border_color = Color(0.32, 0.26, 0.28, 1)
-shadow_color = Color(0.025, 0.01, 0.018, 0.85)
-shadow_size = 7
-shadow_offset = Vector2(7, 8)
 
 [node name="CharacterSelect" type="Control"]
 layout_mode = 3
@@ -155,24 +115,19 @@ theme_override_font_sizes/font_size = 42
 text = "JUAN"
 horizontal_alignment = 1
 
-[node name="StartButton" type="Button" parent="."]
+[node name="StartButton" type="TextureButton" parent="."]
 layout_mode = 0
-offset_left = 645.0
-offset_top = 895.0
-offset_right = 1275.0
-offset_bottom = 1015.0
-theme_override_colors/font_color = Color(1, 0.88, 0.68, 1)
-theme_override_colors/font_hover_color = Color(1, 0.95, 0.82, 1)
-theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
-theme_override_colors/font_disabled_color = Color(0.42, 0.39, 0.42, 1)
-theme_override_colors/font_outline_color = Color(0.08, 0.008, 0.015, 1)
-theme_override_constants/outline_size = 4
-theme_override_font_sizes/font_size = 26
-theme_override_styles/normal = SubResource("StartNormal")
-theme_override_styles/hover = SubResource("StartHover")
-theme_override_styles/pressed = SubResource("StartPressed")
-theme_override_styles/disabled = SubResource("StartDisabled")
-text = "COMENZAR LA NOCHE"
+offset_left = 537.0
+offset_top = 830.0
+offset_right = 1383.0
+offset_bottom = 1063.0
+focus_mode = 0
+texture_normal = ExtResource("5_start_normal")
+texture_pressed = ExtResource("7_start_pressed")
+texture_hover = ExtResource("6_start_hover")
+texture_disabled = ExtResource("8_start_disabled")
+ignore_texture_size = true
+stretch_mode = 0
 
 [node name="Status" type="Label" parent="."]
 layout_mode = 0

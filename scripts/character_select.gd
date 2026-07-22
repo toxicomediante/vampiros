@@ -11,7 +11,7 @@ const IDLE_FPS := 5.0
 @onready var juan_button: Button = $JuanButton
 @onready var michu_name: Label = $MichuName
 @onready var juan_name: Label = $JuanName
-@onready var start_button: Button = $StartButton
+@onready var start_button: TextureButton = $StartButton
 @onready var status: Label = $Status
 
 var selected_character := ""
@@ -74,4 +74,4 @@ func _set_selected(sprite: AnimatedSprite2D, label: Label, selected: bool) -> vo
 
 func _start_night() -> void:
 	status.text = "%s ESTÁ LISTO" % selected_character.to_upper()
-	start_button.text = "LA NOCHE COMIENZA..."
+	start_button.disabled = true
