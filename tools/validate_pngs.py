@@ -44,9 +44,10 @@ def validate(path: Path) -> None:
     if not saw_end:
         raise ValueError("missing IEND chunk")
     zlib.decompress(compressed)
-    if color_type != 6:
+    if color_type not in (3, 6):
         raise ValueError(
-            f"unsupported asset encoding: expected RGBA PNG (type 6), got type {color_type}"
+            "unsupported asset encoding: expected indexed or RGBA PNG "
+            f"(type 3 or 6), got type {color_type}"
         )
 
 
