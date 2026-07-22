@@ -57,8 +57,8 @@ jobs:
           mkdir -p build/web
           godot --headless --path . --export-release "Web" build/web/index.html
           test -s build/web/index.html
-          cp assets/social/vampiros_social_preview.png build/web/vampiros_social_preview.png
-          test -s build/web/vampiros_social_preview.png
+          cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
+          test -s build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
       - name: Upload Pages artifact
