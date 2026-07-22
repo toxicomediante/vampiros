@@ -17,8 +17,8 @@ const CHARACTER_SHEET_ROWS := 4
 const DESTINATION_OFFSET := Vector2(0, 112)
 const LOCATION_SELECTION_RADIUS := 210.0
 const CLICK_DRAG_THRESHOLD := 18.0
-const MIN_CHARACTER_SCALE := 0.72
-const MAX_CHARACTER_SCALE := 1.0
+const MIN_CHARACTER_SCALE := 1.35
+const MAX_CHARACTER_SCALE := 1.65
 
 const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
