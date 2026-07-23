@@ -26,9 +26,9 @@ LOCKED_COMBAT_IDLE_REGIONS = {
     ),
 }
 
-MINIMUM_COMBAT_IDLE_TRAVEL = {
-    Path("assets/characters/combat/juan_combat_idle.png"): (362, 6, 40),
-    Path("assets/characters/combat/michu_combat_idle.png"): (362, 6, 130),
+COMBAT_IDLE_TRAVEL_LIMITS = {
+    Path("assets/characters/combat/juan_combat_idle.png"): (362, 6, 40, 90),
+    Path("assets/characters/combat/michu_combat_idle.png"): (362, 6, 60, 95),
 }
 
 
@@ -122,6 +122,7 @@ def validate_idle_motion(
     frame_width: int,
     frame_count: int,
     minimum_vertical_travel: int,
+    maximum_vertical_travel: int,
 ) -> None:
     width, height = dimensions
     if width != frame_width * frame_count:
@@ -145,6 +146,11 @@ def validate_idle_motion(
         raise ValueError(
             "combat idle has lost its body compression: "
             f"expected at least {minimum_vertical_travel}px, got {travel}px"
+        )
+    if travel > maximum_vertical_travel:
+        raise ValueError(
+            "combat idle crouches too deeply: "
+            f"expected at most {maximum_vertical_travel}px, got {travel}px"
         )
 
 
@@ -216,11 +222,11 @@ def validate(path: Path) -> None:
             dimensions,
             *LOCKED_COMBAT_IDLE_REGIONS[path],
         )
-    if path in MINIMUM_COMBAT_IDLE_TRAVEL:
+    if path in COMBAT_IDLE_TRAVEL_LIMITS:
         validate_idle_motion(
             bytes(compressed),
             dimensions,
-            *MINIMUM_COMBAT_IDLE_TRAVEL[path],
+            *COMBAT_IDLE_TRAVEL_LIMITS[path],
         )
 
 
