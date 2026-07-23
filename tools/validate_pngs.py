@@ -13,6 +13,94 @@ EXPECTED_ANIMATION_SHEETS = {
     Path("assets/characters/combat/michu_combat_idle.png"): (2172, 644),
 }
 
+LOCKED_COMBAT_IDLE_REGIONS = {
+    Path("assets/characters/combat/juan_combat_idle.png"): (362, 6, 386),
+    Path("assets/characters/combat/michu_combat_idle.png"): (362, 6, 358),
+}
+
+
+def paeth_predictor(left: int, above: int, upper_left: int) -> int:
+    prediction = left + above - upper_left
+    distance_left = abs(prediction - left)
+    distance_above = abs(prediction - above)
+    distance_upper_left = abs(prediction - upper_left)
+    if distance_left <= distance_above and distance_left <= distance_upper_left:
+        return left
+    if distance_above <= distance_upper_left:
+        return above
+    return upper_left
+
+
+def decode_rgba_scanlines(compressed: bytes, width: int, height: int) -> list[bytes]:
+    """Decode non-interlaced, 8-bit RGBA rows using only the standard library."""
+    bytes_per_pixel = 4
+    stride = width * bytes_per_pixel
+    filtered = zlib.decompress(compressed)
+    expected_size = height * (stride + 1)
+    if len(filtered) != expected_size:
+        raise ValueError(
+            f"unexpected decompressed size: expected {expected_size}, got {len(filtered)}"
+        )
+
+    rows: list[bytes] = []
+    previous = bytearray(stride)
+    offset = 0
+    for _ in range(height):
+        filter_type = filtered[offset]
+        source = filtered[offset + 1 : offset + 1 + stride]
+        offset += stride + 1
+        row = bytearray(stride)
+        for index, value in enumerate(source):
+            left = row[index - bytes_per_pixel] if index >= bytes_per_pixel else 0
+            above = previous[index]
+            upper_left = (
+                previous[index - bytes_per_pixel]
+                if index >= bytes_per_pixel
+                else 0
+            )
+            if filter_type == 0:
+                predictor = 0
+            elif filter_type == 1:
+                predictor = left
+            elif filter_type == 2:
+                predictor = above
+            elif filter_type == 3:
+                predictor = (left + above) // 2
+            elif filter_type == 4:
+                predictor = paeth_predictor(left, above, upper_left)
+            else:
+                raise ValueError(f"unsupported PNG filter type {filter_type}")
+            row[index] = (value + predictor) & 0xFF
+        rows.append(bytes(row))
+        previous = row
+    return rows
+
+
+def validate_locked_idle_region(
+    compressed: bytes,
+    dimensions: tuple[int, int],
+    frame_width: int,
+    frame_count: int,
+    locked_from_y: int,
+) -> None:
+    width, height = dimensions
+    if width != frame_width * frame_count:
+        raise ValueError("locked combat idle geometry does not match frame layout")
+    if not 0 <= locked_from_y < height:
+        raise ValueError("locked combat idle region starts outside the sheet")
+    rows = decode_rgba_scanlines(compressed, width, height)
+    frame_stride = frame_width * 4
+    for y in range(locked_from_y, height):
+        reference = rows[y][0:frame_stride]
+        for frame_index in range(1, frame_count):
+            start = frame_index * frame_stride
+            candidate = rows[y][start : start + frame_stride]
+            if candidate != reference:
+                raise ValueError(
+                    "combat idle feet drift: lower body differs from frame 0 "
+                    f"in frame {frame_index} at row {y}"
+                )
+
 
 def validate(path: Path) -> None:
     data = path.read_bytes()
@@ -24,6 +112,8 @@ def validate(path: Path) -> None:
     saw_end = False
     color_type = None
     dimensions = None
+    bit_depth = None
+    interlace_method = None
     while offset < len(data):
         if offset + 12 > len(data):
             raise ValueError("truncated chunk")
@@ -45,7 +135,9 @@ def validate(path: Path) -> None:
             if len(payload) != 13:
                 raise ValueError("invalid IHDR chunk")
             dimensions = struct.unpack(">II", payload[:8])
+            bit_depth = payload[8]
             color_type = payload[9]
+            interlace_method = payload[12]
         if kind == b"IEND":
             saw_end = True
             break
@@ -68,6 +160,16 @@ def validate(path: Path) -> None:
             )
         if color_type != 6:
             raise ValueError("animation sheets must use RGBA transparency")
+    if path in LOCKED_COMBAT_IDLE_REGIONS:
+        if bit_depth != 8 or interlace_method != 0:
+            raise ValueError(
+                "locked combat idle validation requires 8-bit non-interlaced RGBA"
+            )
+        validate_locked_idle_region(
+            bytes(compressed),
+            dimensions,
+            *LOCKED_COMBAT_IDLE_REGIONS[path],
+        )
 
 
 def main() -> None:
