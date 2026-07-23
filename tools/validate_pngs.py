@@ -7,8 +7,10 @@ import zlib
 
 
 EXPECTED_ANIMATION_SHEETS = {
-    Path("assets/characters/overworld/juan_overworld_animations.png"),
-    Path("assets/characters/overworld/michu_overworld_animations.png"),
+    Path("assets/characters/overworld/juan_overworld_animations.png"): (576, 512),
+    Path("assets/characters/overworld/michu_overworld_animations.png"): (576, 512),
+    Path("assets/characters/combat/juan_combat_idle.png"): (2172, 644),
+    Path("assets/characters/combat/michu_combat_idle.png"): (2172, 644),
 }
 
 
@@ -58,13 +60,14 @@ def validate(path: Path) -> None:
             f"(type 3 or 6), got type {color_type}"
         )
     if path in EXPECTED_ANIMATION_SHEETS:
-        if dimensions != (576, 512):
+        expected_dimensions = EXPECTED_ANIMATION_SHEETS[path]
+        if dimensions != expected_dimensions:
             raise ValueError(
-                "invalid overworld animation sheet geometry: "
-                f"expected 576x512, got {dimensions}"
+                "invalid animation sheet geometry: "
+                f"expected {expected_dimensions}, got {dimensions}"
             )
         if color_type != 6:
-            raise ValueError("overworld animation sheets must use RGBA transparency")
+            raise ValueError("animation sheets must use RGBA transparency")
 
 
 def main() -> None:

@@ -1,0 +1,72 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat.gd" id="1_script"]
+[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.wav" id="2_music"]
+
+[node name="Combat" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("2_music")
+volume_db = -11.0
+autoplay = true
+
+[node name="CombatCharacter" type="Node2D" parent="."]
+position = Vector2(620, 1020)
+
+[node name="Shadow" type="Polygon2D" parent="CombatCharacter"]
+polygon = PackedVector2Array(-132, -10, -94, -27, 0, -35, 94, -27, 132, -10, 96, 7, 0, 13, -96, 7)
+color = Color(0.005, 0.007, 0.012, 0.46)
+z_index = -1
+
+[node name="Sprite" type="AnimatedSprite2D" parent="CombatCharacter"]
+position = Vector2(0, -322)
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="TopControls" type="HBoxContainer" parent="Interface"]
+offset_left = 28.0
+offset_top = 26.0
+offset_right = 244.0
+offset_bottom = 126.0
+theme_override_constants/separation = 16
+
+[node name="FullscreenButton" type="TextureButton" parent="Interface/TopControls"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+focus_mode = 0
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="SoundButton" type="TextureButton" parent="Interface/TopControls"]
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+focus_mode = 0
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="Curtain" type="ColorRect" parent="Interface"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.008, 0.012, 0.025, 1)

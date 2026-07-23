@@ -132,7 +132,9 @@ func _generate_route() -> void:
 	var node_count := 0
 	for step in STEP_POSITIONS:
 		node_count += step.size()
-	var special_nodes := range(node_count)
+	# El primer paso forma parte del vertical slice de taberna y combate. Los
+	# locales especiales apareceran mas adelante en la ruta.
+	var special_nodes := range(STEP_POSITIONS[0].size(), node_count)
 	special_nodes.shuffle()
 	var meigas_node: int = special_nodes[0]
 	var trujillo_node: int = special_nodes[1]
@@ -141,7 +143,8 @@ func _generate_route() -> void:
 	for step_index in STEP_POSITIONS.size():
 		var step_locations: Array[Node2D] = []
 		for branch_index in STEP_POSITIONS[step_index].size():
-			var building_texture: Texture2D = TAVERNS.pick_random()
+			var tavern_variant := randi_range(0, TAVERNS.size() - 1)
+			var building_texture: Texture2D = TAVERNS[tavern_variant]
 			var location_kind := "tavern"
 			if node_index == meigas_node:
 				building_texture = PUB_MEIGAS
@@ -154,6 +157,7 @@ func _generate_route() -> void:
 			location.name = "Step%02dNode%02d" % [step_index + 1, branch_index + 1]
 			location.position = STEP_POSITIONS[step_index][branch_index]
 			location.set_meta("location_kind", location_kind)
+			location.set_meta("tavern_variant", tavern_variant)
 			$RouteBuildings.add_child(location)
 			step_locations.append(location)
 
@@ -320,12 +324,15 @@ func _travel_to_location(location: Node2D) -> void:
 	await _play_character_transition(&"volteo2")
 	character_sprite.flip_h = false
 	character_sprite.play(&"idle")
-	character_moving = false
-	map_navigation_enabled = true
-	journey_label.text = "DESTINO ALCANZADO"
-	var finish_message := create_tween()
-	finish_message.tween_interval(1.8)
-	finish_message.tween_property(journey_label, "modulate:a", 0.0, 0.45)
+	journey_label.text = "ENTRANDO EN LA TABERNA..."
+	journey_label.modulate.a = 1.0
+	GameState.select_combat_interior(int(location.get_meta("tavern_variant", 0)))
+
+	var enter_interior := create_tween()
+	enter_interior.tween_interval(0.35)
+	enter_interior.tween_property(curtain, "color:a", 1.0, 0.55)
+	await enter_interior.finished
+	get_tree().change_scene_to_file("res://scenes/combat.tscn")
 
 func _play_character_transition(animation_name: StringName) -> void:
 	character_sprite.play(animation_name)
