@@ -14,8 +14,21 @@ EXPECTED_ANIMATION_SHEETS = {
 }
 
 LOCKED_COMBAT_IDLE_REGIONS = {
-    Path("assets/characters/combat/juan_combat_idle.png"): (362, 6, 386),
-    Path("assets/characters/combat/michu_combat_idle.png"): (362, 6, 358),
+    Path("assets/characters/combat/juan_combat_idle.png"): (
+        362,
+        6,
+        ((34, 548, 128, 612), (205, 568, 336, 644)),
+    ),
+    Path("assets/characters/combat/michu_combat_idle.png"): (
+        362,
+        6,
+        ((32, 548, 134, 614), (194, 574, 334, 644)),
+    ),
+}
+
+MINIMUM_COMBAT_IDLE_TRAVEL = {
+    Path("assets/characters/combat/juan_combat_idle.png"): (362, 6, 40),
+    Path("assets/characters/combat/michu_combat_idle.png"): (362, 6, 130),
 }
 
 
@@ -81,25 +94,58 @@ def validate_locked_idle_region(
     dimensions: tuple[int, int],
     frame_width: int,
     frame_count: int,
-    locked_from_y: int,
+    locked_regions: tuple[tuple[int, int, int, int], ...],
 ) -> None:
     width, height = dimensions
     if width != frame_width * frame_count:
         raise ValueError("locked combat idle geometry does not match frame layout")
-    if not 0 <= locked_from_y < height:
-        raise ValueError("locked combat idle region starts outside the sheet")
     rows = decode_rgba_scanlines(compressed, width, height)
     frame_stride = frame_width * 4
-    for y in range(locked_from_y, height):
-        reference = rows[y][0:frame_stride]
-        for frame_index in range(1, frame_count):
-            start = frame_index * frame_stride
-            candidate = rows[y][start : start + frame_stride]
-            if candidate != reference:
-                raise ValueError(
-                    "combat idle feet drift: lower body differs from frame 0 "
-                    f"in frame {frame_index} at row {y}"
-                )
+    for x0, y0, x1, y1 in locked_regions:
+        if not (0 <= x0 < x1 <= frame_width and 0 <= y0 < y1 <= height):
+            raise ValueError("locked combat idle region lies outside a frame")
+        for y in range(y0, y1):
+            reference = rows[y][x0 * 4 : x1 * 4]
+            for frame_index in range(1, frame_count):
+                start = frame_index * frame_stride + x0 * 4
+                candidate = rows[y][start : start + (x1 - x0) * 4]
+                if candidate != reference:
+                    raise ValueError(
+                        "combat idle foot contact drifts from frame 0 "
+                        f"in frame {frame_index}, region {(x0, y0, x1, y1)}"
+                    )
+
+
+def validate_idle_motion(
+    compressed: bytes,
+    dimensions: tuple[int, int],
+    frame_width: int,
+    frame_count: int,
+    minimum_vertical_travel: int,
+) -> None:
+    width, height = dimensions
+    if width != frame_width * frame_count:
+        raise ValueError("combat idle motion geometry does not match frame layout")
+    rows = decode_rgba_scanlines(compressed, width, height)
+    frame_stride = frame_width * 4
+    opaque_tops: list[int] = []
+    for frame_index in range(frame_count):
+        frame_start = frame_index * frame_stride
+        top = None
+        for y, row in enumerate(rows):
+            alpha = row[frame_start + 3 : frame_start + frame_stride : 4]
+            if any(value >= 128 for value in alpha):
+                top = y
+                break
+        if top is None:
+            raise ValueError(f"combat idle frame {frame_index} is empty")
+        opaque_tops.append(top)
+    travel = max(opaque_tops) - min(opaque_tops)
+    if travel < minimum_vertical_travel:
+        raise ValueError(
+            "combat idle has lost its body compression: "
+            f"expected at least {minimum_vertical_travel}px, got {travel}px"
+        )
 
 
 def validate(path: Path) -> None:
@@ -169,6 +215,12 @@ def validate(path: Path) -> None:
             bytes(compressed),
             dimensions,
             *LOCKED_COMBAT_IDLE_REGIONS[path],
+        )
+    if path in MINIMUM_COMBAT_IDLE_TRAVEL:
+        validate_idle_motion(
+            bytes(compressed),
+            dimensions,
+            *MINIMUM_COMBAT_IDLE_TRAVEL[path],
         )
 
 

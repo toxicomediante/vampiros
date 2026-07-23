@@ -58,7 +58,7 @@ func _prepare_character() -> void:
 	character_sprite.sprite_frames = _build_idle_frames(sheet, character_id)
 	character_sprite.position = Vector2(0, -COMBAT_FRAME_SIZE.y / 2.0)
 	character_root.position = CHARACTER_POSITION
-	character_root.scale = Vector2.ONE * (1.13 if character_id == &"michu" else 1.10)
+	character_root.scale = Vector2.ONE * (1.13 if character_id == &"michu" else 1.19)
 	shadow.scale = Vector2(0.90, 0.82) if character_id == &"michu" else Vector2(1.12, 0.92)
 	character_sprite.play(&"idle")
 
