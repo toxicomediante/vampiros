@@ -34,22 +34,11 @@ jobs:
         with:
           ref: main
 
-      - name: Download recovery package
+      - name: Regenerate valid compact pixel-art assets
         shell: bash
         run: |
           set -euxo pipefail
-          # Recovery package contains complete PNG binaries, avoiding Contents API truncation.
-          curl -L --fail --retry 3 \
-            'https://drive.usercontent.google.com/download?id=18NOC_EAUXNsmi4GLsvzEAvfQleLtgfss&export=download&confirm=t' \
-            -o /tmp/vertical_slice_assets_rebuilt.zip
-          test -s /tmp/vertical_slice_assets_rebuilt.zip
-          unzip -t /tmp/vertical_slice_assets_rebuilt.zip
-
-      - name: Restore complete PNG binaries
-        shell: bash
-        run: |
-          set -euxo pipefail
-          unzip -o /tmp/vertical_slice_assets_rebuilt.zip -d .
+          python3 tools/regenerate_vertical_slice_assets.py
           python3 tools/validate_pngs.py
 
       - name: Commit restored assets to main
@@ -63,7 +52,7 @@ jobs:
             echo 'No asset changes detected.'
             exit 0
           fi
-          git commit -m 'Restore complete vertical slice PNG assets'
+          git commit -m 'Restore valid vertical slice PNG assets'
           git push origin HEAD:main
 
   build:
