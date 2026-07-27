@@ -10,7 +10,7 @@ on:
       - main
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -22,6 +22,37 @@ env:
   GODOT_VERSION: 4.7.1
 
 jobs:
+  repair_pngs:
+    name: Repair PNG CRCs on main
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Repair PNG chunk CRCs
+        run: python3 tools/repair_png_crcs.py assets
+
+      - name: Validate repaired PNG assets
+        run: python3 tools/validate_pngs.py
+
+      - name: Commit repaired binaries to main
+        shell: bash
+        run: |
+          if git diff --quiet -- assets; then
+            echo "No PNG repairs were necessary."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets
+          git commit -m "Repair PNG chunk CRCs"
+          git push origin HEAD:main
+
   build:
     name: Build Godot Web
     runs-on: ubuntu-latest
