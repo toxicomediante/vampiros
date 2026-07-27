@@ -3,88 +3,63 @@ name: Deploy Web Preview
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
 concurrency:
-  group: github-pages-${{ github.event_name }}
-  cancel-in-progress: false
+  group: github-pages
+  cancel-in-progress: true
 
 env:
   GODOT_VERSION: 4.7.1
 
 jobs:
-  restore_assets:
-    name: Restore vertical slice PNG assets
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Regenerate and validate assets
-        run: |
-          python3 tools/regenerate_vertical_slice_assets.py
-          python3 tools/validate_pngs.py
-      - name: Commit restored assets to main
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/cards assets/enemies assets/ui/combat/hp_def_frame.png
-          if ! git diff --cached --quiet; then
-            git commit -m 'Restore valid vertical slice PNG assets'
-            git push origin HEAD:main
-          fi
-
   build:
     name: Build Godot Web
-    needs: restore_assets
-    if: always() && (needs.restore_assets.result == 'success' || needs.restore_assets.result == 'skipped')
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
-      - name: Checkout current main
+      - name: Checkout source
         uses: actions/checkout@v4
-        with:
-          ref: main
+
       - name: Configure GitHub Pages
-        id: pages
         uses: actions/configure-pages@v5
+
       - name: Configure Godot
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
           include-templates: true
-      - name: Restore approved Drive assets and UI layout
-        run: python3 tools/restore_drive_assets.py
-      - name: Validate PNG assets
-        run: python3 tools/validate_pngs.py
-      - name: Generate original background music
+
+      - name: Apply approved combat corrections
+        run: python3 tools/apply_combat_fixes.py
+
+      - name: Generate background music
         run: |
           python3 tools/generate_night_drive.py
           test -s assets/audio/neon_blood_drive.wav
-      - name: Import project
-        run: godot --headless --editor --path . --import --quit
-      - name: Validate project
-        run: godot --headless --editor --path . --quit-after 2
+
+      - name: Import and validate project
+        run: |
+          godot --headless --editor --path . --import --quit
+          godot --headless --editor --path . --quit-after 2
+
       - name: Export web build
         run: |
+          rm -rf build/web
           mkdir -p build/web
           godot --headless --path . --export-release 'Web' build/web/index.html
           test -s build/web/index.html
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -93,7 +68,6 @@ jobs:
   deploy:
     name: Deploy GitHub Pages
     needs: build
-    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -103,17 +77,3 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-      - name: Record successful deployment
-        if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
-        with:
-          ref: main
-      - name: Commit deployment marker
-        if: github.event_name != 'pull_request'
-        run: |
-          printf '%s\n%s\n' "$GITHUB_SHA" "${{ steps.deployment.outputs.page_url }}" > .github/last-successful-pages-deploy
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/last-successful-pages-deploy
-          git commit -m 'Record successful Pages deployment' || exit 0
-          git push origin HEAD:main
