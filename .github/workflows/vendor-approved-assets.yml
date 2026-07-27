@@ -1,40 +1,72 @@
-name: Vendor approved PNG assets
+name: Vendor approved assets and deploy
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  issues:
+    types: [opened]
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
 
 jobs:
-  vendor:
-    if: github.actor != 'github-actions[bot]'
+  vendor-and-deploy:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.issue.title, '[deploy-assets]')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-      - name: Download approved originals into repository
+
+      - name: Download approved PNG originals into the Godot project
         run: python3 tools/restore_drive_assets.py
-      - name: Remove temporary download machinery
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('.github/workflows/deploy-web.yml')
-          text = path.read_text()
-          text = text.replace("      - name: Restore approved Drive assets and UI layout\n        run: python3 tools/restore_drive_assets.py\n", "")
-          path.write_text(text)
-          PY
-          git rm tools/restore_drive_assets.py
-          git rm .github/workflows/vendor-approved-assets.yml
-      - name: Commit PNGs directly to main
+
+      - name: Vendor PNGs and remove temporary downloader
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets scripts/combat.gd .github/workflows/deploy-web.yml
+          git rm tools/restore_drive_assets.py
+          git rm .github/workflows/vendor-approved-assets.yml
+          git add assets scripts/combat.gd
           git commit -m 'Vendor approved PNG assets directly in Godot project'
           git push origin HEAD:main
+
+      - name: Install Godot 4.7.1 and export templates
+        run: |
+          set -euxo pipefail
+          wget -q https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          unzip -q Godot_v4.7.1-stable_linux.x86_64.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+          sudo mv Godot_v4.7.1-stable_linux.x86_64 /usr/local/bin/godot
+          wget -q https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.7.1.stable"
+          unzip -q Godot_v4.7.1-stable_export_templates.tpz
+          cp -R templates/* "$HOME/.local/share/godot/export_templates/4.7.1.stable/"
+
+      - name: Export Web build
+        run: |
+          mkdir -p build/web
+          godot --headless --path . --import
+          godot --headless --path . --export-release Web build/web/index.html
+          touch build/web/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
