@@ -1,0 +1,40 @@
+name: Vendor approved PNG assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Download approved originals into repository
+        run: python3 tools/restore_drive_assets.py
+      - name: Remove temporary download machinery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/deploy-web.yml')
+          text = path.read_text()
+          text = text.replace("      - name: Restore approved Drive assets and UI layout\n        run: python3 tools/restore_drive_assets.py\n", "")
+          path.write_text(text)
+          PY
+          git rm tools/restore_drive_assets.py
+          git rm .github/workflows/vendor-approved-assets.yml
+      - name: Commit PNGs directly to main
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets scripts/combat.gd .github/workflows/deploy-web.yml
+          git commit -m 'Vendor approved PNG assets directly in Godot project'
+          git push origin HEAD:main
