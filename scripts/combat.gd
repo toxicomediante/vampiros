@@ -11,7 +11,7 @@ const HAND_SIZE := 5
 const ENERGY_FRAME_SIZE := Vector2i(384, 560)
 const ENERGY_FRAME_Y := 220
 const CARD_SIZE := Vector2(210, 315)
-const CARD_GAP := 18.0
+const CARD_GAP := -58.0
 const CARD_Y := 735.0
 const PLAY_LINE_Y := 700.0
 
@@ -55,6 +55,7 @@ const CARD_TEXTURES := {
 	&"tiriviento": preload("res://assets/cards/juan/tiriviento.png"),
 	&"fresquita": preload("res://assets/cards/juan/fresquita.png"),
 	&"siempre_sale_bien": preload("res://assets/cards/juan/siempre_sale_bien.png"),
+	&"el_oculto": preload("res://assets/cards/juan/el_oculto.png"),
 	&"mojadita": preload("res://assets/cards/michu/mojadita.png"),
 	&"michu_guardia": preload("res://assets/cards/michu/guardia.png"),
 	&"bocanegra": preload("res://assets/cards/michu/bocanegra.png"),
@@ -164,25 +165,25 @@ func _build_enemies() -> void:
 func _build_runtime_ui() -> void:
 	var player_frame := TextureRect.new()
 	player_frame.texture = HP_DEF_FRAME_TEXTURE
-	player_frame.position = Vector2(24, 132)
-	player_frame.size = Vector2(690, 388)
+	player_frame.position = Vector2(34, 150)
+	player_frame.size = Vector2(430, 242)
 	player_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	player_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	player_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interface.add_child(player_frame)
 
 	player_hp_label = _make_label(
-		Vector2(245, 286), Vector2(420, 42), 25, Color(1.0, 0.9, 0.79)
+		Vector2(155, 244), Vector2(265, 34), 20, Color(1.0, 0.9, 0.79)
 	)
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	interface.add_child(player_hp_label)
 	player_block_label = _make_label(
-		Vector2(245, 350), Vector2(420, 42), 23, Color(0.72, 0.88, 1.0)
+		Vector2(155, 286), Vector2(265, 34), 19, Color(0.72, 0.88, 1.0)
 	)
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	interface.add_child(player_block_label)
 	player_status_label = _make_label(
-		Vector2(55, 485), Vector2(650, 52), 15, Color(0.96, 0.82, 0.56)
+		Vector2(48, 392), Vector2(430, 42), 13, Color(0.96, 0.82, 0.56)
 	)
 	interface.add_child(player_status_label)
 
@@ -284,6 +285,8 @@ func _rebuild_hand() -> void:
 		button.texture_normal = CARD_TEXTURES[card_id]
 		button.ignore_texture_size = true
 		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		button.clip_contents = false
+		button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		button.position = Vector2(start_x + card_index * (CARD_SIZE.x + CARD_GAP), CARD_Y)
 		button.size = CARD_SIZE
 		button.tooltip_text = "%s · Coste %d" % [
