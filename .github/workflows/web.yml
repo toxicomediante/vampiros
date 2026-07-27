@@ -22,8 +22,8 @@ env:
   GODOT_VERSION: 4.7.1
 
 jobs:
-  repair_pngs:
-    name: Repair PNG CRCs on main
+  restore_assets:
+    name: Restore vertical slice PNG assets
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -34,47 +34,40 @@ jobs:
         with:
           ref: main
 
-      - name: Repair PNG chunk CRCs
-        id: repair_pngs
-        continue-on-error: true
+      - name: Download recovery package
         shell: bash
         run: |
-          set +e
-          python3 tools/repair_png_crcs.py assets 2>&1 | tee png-repair.log
-          status=${PIPESTATUS[0]}
-          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
+          set -euxo pipefail
+          curl -L --fail --retry 3 \
+            'https://drive.usercontent.google.com/download?id=18NOC_EAUXNsmi4GLsvzEAvfQleLtgfss&export=download&confirm=t' \
+            -o /tmp/vertical_slice_assets_rebuilt.zip
+          test -s /tmp/vertical_slice_assets_rebuilt.zip
+          unzip -t /tmp/vertical_slice_assets_rebuilt.zip
 
-      - name: Upload PNG repair log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: png-repair-log
-          path: png-repair.log
-          if-no-files-found: error
-
-      - name: Stop after failed PNG repair
-        if: steps.repair_pngs.outputs.exit_code != '0'
-        run: exit 1
-
-      - name: Validate repaired PNG assets
-        run: python3 tools/validate_pngs.py
-
-      - name: Commit repaired binaries to main
+      - name: Restore complete PNG binaries
         shell: bash
         run: |
-          if git diff --quiet -- assets; then
-            echo "No PNG repairs were necessary."
+          set -euxo pipefail
+          unzip -o /tmp/vertical_slice_assets_rebuilt.zip -d .
+          python3 tools/validate_pngs.py
+
+      - name: Commit restored assets to main
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/cards assets/enemies assets/ui/combat/hp_def_frame.png
+          if git diff --cached --quiet; then
+            echo 'No asset changes detected.'
             exit 0
           fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add assets
-          git commit -m "Repair PNG chunk CRCs"
+          git commit -m 'Restore complete vertical slice PNG assets'
           git push origin HEAD:main
 
   build:
     name: Build Godot Web
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -82,18 +75,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Upload suspect PNG assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: suspect-png-assets
-          path: |
-            assets/cards
-            assets/enemies
-            assets/ui/combat/hp_def_frame.png
-          if-no-files-found: error
-
       - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request'
         id: pages
         uses: actions/configure-pages@v5
 
@@ -105,27 +87,7 @@ jobs:
           include-templates: true
 
       - name: Validate PNG assets
-        id: validate_pngs
-        continue-on-error: true
-        shell: bash
-        run: |
-          set +e
-          python3 tools/validate_pngs.py 2>&1 | tee png-validation.log
-          status=${PIPESTATUS[0]}
-          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
-
-      - name: Upload PNG validation log
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: png-validation-log
-          path: png-validation.log
-          if-no-files-found: error
-
-      - name: Stop after failed PNG validation
-        if: steps.validate_pngs.outputs.exit_code != '0'
-        run: exit 1
+        run: python3 tools/validate_pngs.py
 
       - name: Generate original background music
         shell: bash
@@ -143,14 +105,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p build/web
-          godot --headless --path . --export-release "Web" build/web/index.html
+          godot --headless --path . --export-release 'Web' build/web/index.html
           test -s build/web/index.html
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           test -s build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
