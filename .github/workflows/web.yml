@@ -82,6 +82,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Upload suspect PNG assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: suspect-png-assets
+          path: |
+            assets/cards
+            assets/enemies
+            assets/ui/combat/hp_def_frame.png
+          if-no-files-found: error
+
       - name: Configure GitHub Pages
         if: github.event_name != 'pull_request'
         id: pages
