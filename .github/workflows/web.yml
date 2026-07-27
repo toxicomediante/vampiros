@@ -35,7 +35,27 @@ jobs:
           ref: main
 
       - name: Repair PNG chunk CRCs
-        run: python3 tools/repair_png_crcs.py assets
+        id: repair_pngs
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          python3 tools/repair_png_crcs.py assets 2>&1 | tee png-repair.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload PNG repair log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: png-repair-log
+          path: png-repair.log
+          if-no-files-found: error
+
+      - name: Stop after failed PNG repair
+        if: steps.repair_pngs.outputs.exit_code != '0'
+        run: exit 1
 
       - name: Validate repaired PNG assets
         run: python3 tools/validate_pngs.py
