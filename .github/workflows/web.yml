@@ -37,9 +37,7 @@ jobs:
           python3 tools/regenerate_vertical_slice_assets.py
           python3 tools/validate_pngs.py
       - name: Commit restored assets to main
-        shell: bash
         run: |
-          set -euxo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/cards assets/enemies assets/ui/combat/hp_def_frame.png
@@ -103,3 +101,17 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+      - name: Record successful deployment
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Commit deployment marker
+        if: github.event_name != 'pull_request'
+        run: |
+          printf '%s\n%s\n' "$GITHUB_SHA" "${{ steps.deployment.outputs.page_url }}" > .github/last-successful-pages-deploy
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/last-successful-pages-deploy
+          git commit -m 'Record successful Pages deployment' || exit 0
+          git push origin HEAD:main
