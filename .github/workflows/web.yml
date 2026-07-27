@@ -27,20 +27,15 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout main
         uses: actions/checkout@v4
         with:
           ref: main
-
-      - name: Regenerate valid compact pixel-art assets
-        shell: bash
+      - name: Regenerate and validate assets
         run: |
-          set -euxo pipefail
           python3 tools/regenerate_vertical_slice_assets.py
           python3 tools/validate_pngs.py
-
       - name: Commit restored assets to main
         shell: bash
         run: |
@@ -48,59 +43,48 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/cards assets/enemies assets/ui/combat/hp_def_frame.png
-          if git diff --cached --quiet; then
-            echo 'No asset changes detected.'
-            exit 0
+          if ! git diff --cached --quiet; then
+            git commit -m 'Restore valid vertical slice PNG assets'
+            git push origin HEAD:main
           fi
-          git commit -m 'Restore valid vertical slice PNG assets'
-          git push origin HEAD:main
 
   build:
     name: Build Godot Web
-    if: github.event_name != 'pull_request'
+    needs: restore_assets
+    if: always() && (needs.restore_assets.result == 'success' || needs.restore_assets.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
-      - name: Checkout
+      - name: Checkout current main
         uses: actions/checkout@v4
-
+        with:
+          ref: main
       - name: Configure GitHub Pages
         id: pages
         uses: actions/configure-pages@v5
-
       - name: Configure Godot
         uses: chickensoft-games/setup-godot@v2
         with:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
           include-templates: true
-
       - name: Validate PNG assets
         run: python3 tools/validate_pngs.py
-
       - name: Generate original background music
-        shell: bash
         run: |
           python3 tools/generate_night_drive.py
           test -s assets/audio/neon_blood_drive.wav
-
       - name: Import project
         run: godot --headless --editor --path . --import --quit
-
       - name: Validate project
         run: godot --headless --editor --path . --quit-after 2
-
       - name: Export web build
-        shell: bash
         run: |
           mkdir -p build/web
           godot --headless --path . --export-release 'Web' build/web/index.html
           test -s build/web/index.html
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
-          test -s build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -108,14 +92,13 @@ jobs:
 
   deploy:
     name: Deploy GitHub Pages
-    if: github.event_name != 'pull_request'
     needs: build
+    if: always() && needs.build.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
