@@ -1,0 +1,1 @@
+Validate versioned Godot web payload export.
