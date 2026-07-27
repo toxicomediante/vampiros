@@ -93,6 +93,7 @@ func _set_selected(sprite: AnimatedSprite2D, label: Label, selected: bool) -> vo
 
 func _start_night() -> void:
 	_ensure_music_started()
+	GameState.start_new_run()
 	status.text = "%s ESTÁ LISTO" % selected_character.to_upper()
 	start_button.disabled = true
 	var transition := create_tween()

@@ -28,6 +28,8 @@ stream = ExtResource("2_music")
 volume_db = -11.0
 autoplay = true
 
+[node name="Enemies" type="Node2D" parent="."]
+
 [node name="CombatCharacter" type="Node2D" parent="."]
 position = Vector2(620, 1020)
 
@@ -40,6 +42,17 @@ z_index = -1
 position = Vector2(0, -322)
 
 [node name="Interface" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="EnergyCounter" type="TextureRect" parent="Interface"]
+custom_minimum_size = Vector2(230, 330)
+offset_left = 24.0
+offset_top = 720.0
+offset_right = 254.0
+offset_bottom = 1050.0
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
 
 [node name="TopControls" type="HBoxContainer" parent="Interface"]
 offset_left = 28.0
@@ -70,3 +83,15 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.008, 0.012, 0.025, 1)
+
+[node name="Presentation" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="ModalContent" type="Control" parent="Presentation"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
