@@ -46,10 +46,11 @@ jobs:
           python3 tools/generate_night_drive.py
           test -s assets/audio/neon_blood_drive.wav
 
-      - name: Import and validate project
+      - name: Import, validate and run combat scene
         run: |
           godot --headless --editor --path . --import --quit
           godot --headless --editor --path . --quit-after 2
+          godot --headless --path . scenes/combat.tscn --quit-after 3
 
       - name: Export web build
         run: |
@@ -59,6 +60,33 @@ jobs:
           test -s build/web/index.html
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
+
+      - name: Version web payloads to defeat stale cache
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path('build/web')
+          base = 'vampiros-' + os.environ['GITHUB_SHA'][:12]
+          html_path = root / 'index.html'
+          html = html_path.read_text(encoding='utf-8')
+
+          suffixes = ['.js', '.wasm', '.pck', '.worker.js', '.audio.worklet.js']
+          for suffix in suffixes:
+              source = root / ('index' + suffix)
+              if source.exists():
+                  source.rename(root / (base + suffix))
+
+          html = html.replace('index.js', base + '.js')
+          html = html.replace('"executable":"index"', f'"executable":"{base}"')
+          html = html.replace('"executable": "index"', f'"executable": "{base}"')
+          html_path.write_text(html, encoding='utf-8')
+
+          assert (root / (base + '.pck')).is_file()
+          assert (root / (base + '.wasm')).is_file()
+          assert base in html_path.read_text(encoding='utf-8')
+          PY
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
