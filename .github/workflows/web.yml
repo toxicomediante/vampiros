@@ -38,6 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          # Recovery package contains complete PNG binaries, avoiding Contents API truncation.
           curl -L --fail --retry 3 \
             'https://drive.usercontent.google.com/download?id=18NOC_EAUXNsmi4GLsvzEAvfQleLtgfss&export=download&confirm=t' \
             -o /tmp/vertical_slice_assets_rebuilt.zip
