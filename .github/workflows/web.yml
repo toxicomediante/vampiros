@@ -44,7 +44,27 @@ jobs:
           include-templates: true
 
       - name: Validate PNG assets
-        run: python3 tools/validate_pngs.py
+        id: validate_pngs
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          python3 tools/validate_pngs.py 2>&1 | tee png-validation.log
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Upload PNG validation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: png-validation-log
+          path: png-validation.log
+          if-no-files-found: error
+
+      - name: Stop after failed PNG validation
+        if: steps.validate_pngs.outputs.exit_code != '0'
+        run: exit 1
 
       - name: Generate original background music
         shell: bash
