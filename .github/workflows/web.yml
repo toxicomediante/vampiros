@@ -51,6 +51,9 @@ jobs:
           godot --headless --editor --path . --import --quit
           godot --headless --editor --path . --quit-after 2
 
+      - name: Run combat scene diagnostic
+        run: godot --headless --path . scenes/combat.tscn --quit-after 3
+
       - name: Export web build
         run: |
           rm -rf build/web
