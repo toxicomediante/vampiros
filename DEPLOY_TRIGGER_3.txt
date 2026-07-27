@@ -1,0 +1,1 @@
+Trigger asset vendoring and deployment through repository event.
