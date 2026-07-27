@@ -38,8 +38,8 @@ jobs:
           use-dotnet: false
           include-templates: true
 
-      - name: Apply approved combat corrections
-        run: python3 tools/apply_combat_fixes.py
+      - name: Apply deterministic combat UI and drag fix
+        run: python3 tools/direct_combat_fix.py
 
       - name: Generate background music
         run: |
