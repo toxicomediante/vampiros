@@ -66,6 +66,8 @@ jobs:
           version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
           include-templates: true
+      - name: Restore approved Drive assets and UI layout
+        run: python3 tools/restore_drive_assets.py
       - name: Validate PNG assets
         run: python3 tools/validate_pngs.py
       - name: Generate original background music
