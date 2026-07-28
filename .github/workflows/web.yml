@@ -83,6 +83,26 @@ jobs:
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
+      - name: Retire stale service workers
+        run: |
+          cat > build/web/index.service.worker.js <<'JS'
+          self.addEventListener('install', (event) => {
+            event.waitUntil(self.skipWaiting());
+          });
+          self.addEventListener('activate', (event) => {
+            event.waitUntil((async () => {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((key) => caches.delete(key)));
+              await self.clients.claim();
+              const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+              for (const client of clients) {
+                client.navigate(client.url);
+              }
+              await self.registration.unregister();
+            })());
+          });
+          JS
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
@@ -112,6 +132,8 @@ jobs:
               raise SystemExit('Generated JavaScript is still a threaded runtime')
           if 'nothreads' not in js:
               raise SystemExit('Generated JavaScript is not the nothreads template')
+          if not (root / 'index.service.worker.js').is_file():
+              raise SystemExit('Missing stale service worker retirement script')
 
           print('Verified genuine single-threaded Godot Web runtime')
           PY
