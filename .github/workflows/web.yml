@@ -83,6 +83,11 @@ jobs:
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
       - name: Validate single-threaded Web runtime
         run: |
           python3 - <<'PY'
@@ -98,6 +103,10 @@ jobs:
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
           config = json.loads(match.group(1))
+          print('Generated config:', config)
+          print('Has nothreads marker:', 'nothreads' in js)
+          print('Has pthread marker:', 'ENVIRONMENT_IS_PTHREAD' in js)
+          print('Has shared memory marker:', 'shared:true' in js)
 
           if 'const GODOT_THREADS_ENABLED = false;' not in html:
               raise SystemExit('Generated HTML still enables Godot threads')
@@ -114,11 +123,6 @@ jobs:
 
           print('Verified genuine single-threaded Godot Web runtime')
           PY
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/web
 
   deploy:
     name: Deploy GitHub Pages
