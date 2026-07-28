@@ -64,10 +64,11 @@ jobs:
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
-      - name: Capture Godot Web configuration
+      - name: Validate PWA isolation workaround
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import json
           import re
 
           root = Path('build/web')
@@ -75,9 +76,17 @@ jobs:
           match = re.search(r'const GODOT_CONFIG = (\{.*?\});', html)
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
-          config = match.group(1)
+          config = json.loads(match.group(1))
           print('GODOT_CONFIG:', config)
-          (root / 'godot-config.json').write_text(config, encoding='utf-8')
+
+          if not config.get('ensureCrossOriginIsolationHeaders', False):
+              raise SystemExit('Threaded build no longer requests isolation; review export settings')
+          service_worker = config.get('serviceWorker', '')
+          if not service_worker:
+              raise SystemExit('Godot did not register a PWA service worker')
+          if not (root / service_worker).is_file():
+              raise SystemExit(f'Missing PWA isolation service worker: {service_worker}')
+          print(f'PWA isolation workaround ready: {service_worker}')
           PY
 
       - name: Upload Pages artifact
