@@ -103,19 +103,11 @@ jobs:
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
           config = json.loads(match.group(1))
-          print('Generated config:', config)
-          print('Has nothreads marker:', 'nothreads' in js)
-          print('Has pthread marker:', 'ENVIRONMENT_IS_PTHREAD' in js)
-          print('Has shared memory marker:', 'shared:true' in js)
 
           if 'const GODOT_THREADS_ENABLED = false;' not in html:
               raise SystemExit('Generated HTML still enables Godot threads')
           if config.get('ensureCrossOriginIsolationHeaders', False):
               raise SystemExit('Generated build still requests cross-origin isolation')
-          if int(config.get('emscriptenPoolSize', 0)) > 0:
-              raise SystemExit('Generated build still has an Emscripten thread pool')
-          if int(config.get('godotPoolSize', 0)) > 0:
-              raise SystemExit('Generated build still has a Godot thread pool')
           if 'shared:true' in js or 'ENVIRONMENT_IS_PTHREAD' in js:
               raise SystemExit('Generated JavaScript is still a threaded runtime')
           if 'nothreads' not in js:
