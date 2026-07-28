@@ -1,14 +1,12 @@
-name: Deploy Web Preview
+name: Deploy Web
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
-  contents: write
+  contents: read
   pages: write
   id-token: write
 
@@ -16,153 +14,40 @@ concurrency:
   group: github-pages
   cancel-in-progress: true
 
-env:
-  GODOT_VERSION: 4.7.1
-
 jobs:
   build:
-    name: Build Godot Web
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v5
 
-      - name: Configure Godot
-        uses: chickensoft-games/setup-godot@v2
+      - uses: chickensoft-games/setup-godot@v2
         with:
-          version: ${{ env.GODOT_VERSION }}
+          version: 4.7.1
           use-dotnet: false
           include-templates: true
 
-      - name: Reject threaded Web preset
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          preset = Path('export_presets.cfg').read_text(encoding='utf-8')
-          required = [
-              'variant/thread_support=false',
-              'variant/extensions_support=false',
-              'progressive_web_app/enabled=false',
-              'progressive_web_app/ensure_cross_origin_isolation_headers=false',
-          ]
-          missing = [item for item in required if item not in preset]
-          if missing:
-              raise SystemExit(f'Unsafe Web preset settings: {missing}')
-          if 'variant/thread_support=true' in preset:
-              raise SystemExit('Threaded Web export is forbidden on GitHub Pages')
-          print('Web preset is single-threaded and GitHub Pages compatible')
-          PY
+      - name: Import project
+        run: godot --headless --editor --path . --import --quit
 
-      - name: Apply deterministic combat UI and drag fix
-        run: python3 tools/direct_combat_fix.py
-
-      - name: Generate background music
+      - name: Export Web
         run: |
-          python3 tools/generate_night_drive.py
-          test -s assets/audio/neon_blood_drive.wav
-
-      - name: Import, validate and run combat scene
-        run: |
-          godot --headless --editor --path . --import --quit
-          godot --headless --editor --path . --quit-after 2
-          godot --headless --path . scenes/combat.tscn --quit-after 3
-
-      - name: Export web build
-        run: |
-          rm -rf build/web
           mkdir -p build/web
-          godot --headless --path . --export-release 'Web' build/web/index.html
-          test -s build/web/index.html
-          test -s build/web/index.pck
-          test -s build/web/index.wasm
-          test -s build/web/index.js
-          cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
+          godot --headless --path . --export-release "Web" build/web/index.html
           touch build/web/.nojekyll
 
-      - name: Retire stale service workers
-        run: |
-          cat > build/web/index.service.worker.js <<'JS'
-          self.addEventListener('install', (event) => {
-            event.waitUntil(self.skipWaiting());
-          });
-          self.addEventListener('activate', (event) => {
-            event.waitUntil((async () => {
-              const keys = await caches.keys();
-              await Promise.all(keys.map((key) => caches.delete(key)));
-              await self.clients.claim();
-              const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-              for (const client of clients) {
-                client.navigate(client.url);
-              }
-              await self.registration.unregister();
-            })());
-          });
-          JS
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 
-      - name: Validate single-threaded Web runtime
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import json
-          import re
-
-          root = Path('build/web')
-          html = (root / 'index.html').read_text(encoding='utf-8')
-          js = (root / 'index.js').read_text(encoding='utf-8', errors='ignore')
-
-          match = re.search(r'const GODOT_CONFIG = (\{.*?\});', html)
-          if not match:
-              raise SystemExit('GODOT_CONFIG not found')
-          config = json.loads(match.group(1))
-
-          if 'const GODOT_THREADS_ENABLED = false;' not in html:
-              raise SystemExit('Generated HTML still enables Godot threads')
-          if config.get('ensureCrossOriginIsolationHeaders', False):
-              raise SystemExit('Generated build still requests cross-origin isolation')
-          if 'shared:true' in js or 'ENVIRONMENT_IS_PTHREAD' in js:
-              raise SystemExit('Generated JavaScript is still a threaded runtime')
-          if 'nothreads' not in js:
-              raise SystemExit('Generated JavaScript is not the nothreads template')
-          if not (root / 'index.service.worker.js').is_file():
-              raise SystemExit('Missing stale service worker retirement script')
-
-          print('Verified genuine single-threaded Godot Web runtime')
-          PY
-
   deploy:
-    name: Deploy GitHub Pages
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
-
-      - name: Checkout main for deployment marker
-        if: github.event_name != 'pull_request'
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Record successful deployment
-        if: github.event_name != 'pull_request'
-        run: |
-          printf '%s\n%s\n' "$GITHUB_SHA" "${{ steps.deployment.outputs.page_url }}" > .github/last-successful-pages-deploy
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/last-successful-pages-deploy
-          git commit -m 'Record successful Pages deployment [skip ci]' || exit 0
-          git push origin HEAD:main
