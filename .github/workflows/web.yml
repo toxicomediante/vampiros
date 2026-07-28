@@ -58,34 +58,27 @@ jobs:
           mkdir -p build/web
           godot --headless --path . --export-release 'Web' build/web/index.html
           test -s build/web/index.html
+          test -s build/web/index.pck
+          test -s build/web/index.wasm
+          test -s build/web/index.js
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
-      - name: Version web payloads to defeat stale cache
+      - name: Validate Godot loader references
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import os
 
           root = Path('build/web')
-          base = 'vampiros-' + os.environ['GITHUB_SHA'][:12]
-          html_path = root / 'index.html'
-          html = html_path.read_text(encoding='utf-8')
-
-          suffixes = ['.js', '.wasm', '.pck', '.worker.js', '.audio.worklet.js']
-          for suffix in suffixes:
-              source = root / ('index' + suffix)
-              if source.exists():
-                  source.rename(root / (base + suffix))
-
-          html = html.replace('index.js', base + '.js')
-          html = html.replace('"executable":"index"', f'"executable":"{base}"')
-          html = html.replace('"executable": "index"', f'"executable": "{base}"')
-          html_path.write_text(html, encoding='utf-8')
-
-          assert (root / (base + '.pck')).is_file()
-          assert (root / (base + '.wasm')).is_file()
-          assert base in html_path.read_text(encoding='utf-8')
+          html = (root / 'index.html').read_text(encoding='utf-8')
+          required = ['index.js', '"executable":"index"']
+          missing = [value for value in required if value not in html]
+          if missing:
+              raise SystemExit(f'Godot loader references missing: {missing}')
+          for name in ['index.js', 'index.wasm', 'index.pck']:
+              if not (root / name).is_file():
+                  raise SystemExit(f'Missing web payload: {name}')
+          print('Godot web loader and payload names are consistent')
           PY
 
       - name: Upload Pages artifact
