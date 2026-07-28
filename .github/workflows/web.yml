@@ -64,10 +64,11 @@ jobs:
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
-      - name: Validate Godot loader references
+      - name: Validate GitHub Pages compatible loader
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
           root = Path('build/web')
           html = (root / 'index.html').read_text(encoding='utf-8')
@@ -78,7 +79,17 @@ jobs:
           for name in ['index.js', 'index.wasm', 'index.pck']:
               if not (root / name).is_file():
                   raise SystemExit(f'Missing web payload: {name}')
-          print('Godot web loader and payload names are consistent')
+
+          match = re.search(r'const GODOT_CONFIG = (\{.*?\});', html)
+          if not match:
+              raise SystemExit('GODOT_CONFIG not found')
+          config = match.group(1)
+          if '"ensureCrossOriginIsolationHeaders":true' in config:
+              raise SystemExit('Threaded Web export still requires cross-origin isolation')
+          for key in ['"emscriptenPoolSize":0', '"godotPoolSize":0']:
+              if key not in config:
+                  raise SystemExit(f'Web export is not single-threaded: missing {key}')
+          print('Single-threaded Godot Web export is compatible with GitHub Pages')
           PY
 
       - name: Upload Pages artifact
