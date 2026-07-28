@@ -11,8 +11,10 @@ const HAND_SIZE := 5
 const ENERGY_FRAME_SIZE := Vector2i(384, 560)
 const ENERGY_FRAME_Y := 220
 const CARD_SIZE := Vector2(210, 315)
-const CARD_GAP := -58.0
-const CARD_Y := 735.0
+const CARD_GAP := -78.0
+const CARD_Y := 748.0
+const CARD_FAN_ROTATION := 6.0
+const CARD_FAN_LIFT := 17.0
 const PLAY_LINE_Y := 700.0
 
 const PLAYER_HP := {
@@ -71,7 +73,7 @@ const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
 const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
 const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 const ENERGY_STATES_TEXTURE := preload("res://assets/ui/combat/energy_states.png")
-const HP_DEF_FRAME_TEXTURE := preload("res://assets/ui/combat/hp_def_frame.png")
+const HP_DEF_FRAME_TEXTURE := preload("res://assets/ui/combat/hp_def_frame_approved.png")
 
 @onready var background: TextureRect = $Background
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
@@ -94,11 +96,15 @@ var card_buttons: Array[TextureButton] = []
 var drag_card: TextureButton
 var drag_card_id: StringName
 var drag_origin := Vector2.ZERO
+var drag_origin_rotation := 0.0
+var drag_touch_position := Vector2.ZERO
 var discard_window_open := true
 var combat_finished := false
 
 var player_hp_label: Label
 var player_block_label: Label
+var player_hp_fill: ColorRect
+var player_block_fill: ColorRect
 var player_status_label: Label
 var deck_label: Label
 var hint_label: Label
@@ -144,6 +150,7 @@ func _build_enemies() -> void:
 		var state: CombatantState = CombatantStateScript.new(definition["max_hp"])
 		var sprite := Sprite2D.new()
 		sprite.texture = definition["texture"]
+		sprite.material = _checker_transparency_material()
 		sprite.position = definition["position"]
 		sprite.scale = definition["scale"]
 		enemies_root.add_child(sprite)
@@ -162,49 +169,65 @@ func _build_enemies() -> void:
 		_update_enemy_bounds(enemies.size() - 1)
 
 
+func _checker_transparency_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = """shader_type canvas_item;
+void fragment() {
+    vec4 c = texture(TEXTURE, UV);
+    float spread = max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b));
+    bool neutral_light = spread < 0.035 && c.r > 0.58;
+    COLOR = neutral_light ? vec4(c.rgb, 0.0) : c;
+}
+"""
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	return material
+
+
 func _build_runtime_ui() -> void:
+	player_hp_fill = ColorRect.new()
+	player_hp_fill.position = Vector2(222, 255)
+	player_hp_fill.size = Vector2(326, 38)
+	player_hp_fill.color = Color(0.62, 0.015, 0.025, 0.96)
+	player_hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_hp_fill)
+
+	player_block_fill = ColorRect.new()
+	player_block_fill.position = Vector2(222, 307)
+	player_block_fill.size = Vector2(0, 36)
+	player_block_fill.color = Color(0.08, 0.25, 0.43, 0.96)
+	player_block_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_block_fill)
+
 	var player_frame := TextureRect.new()
 	player_frame.texture = HP_DEF_FRAME_TEXTURE
-	player_frame.position = Vector2(34, 150)
-	player_frame.size = Vector2(430, 242)
+	player_frame.material = _checker_transparency_material()
+	player_frame.position = Vector2(24, 120)
+	player_frame.size = Vector2(600, 337)
 	player_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	player_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	player_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interface.add_child(player_frame)
 
-	player_hp_label = _make_label(
-		Vector2(155, 244), Vector2(265, 34), 20, Color(1.0, 0.9, 0.79)
-	)
+	player_hp_label = _make_label(Vector2(222, 255), Vector2(326, 38), 19, Color(1.0, 0.92, 0.82))
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	interface.add_child(player_hp_label)
-	player_block_label = _make_label(
-		Vector2(155, 286), Vector2(265, 34), 19, Color(0.72, 0.88, 1.0)
-	)
+	player_block_label = _make_label(Vector2(222, 307), Vector2(326, 36), 18, Color(0.78, 0.9, 1.0))
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	interface.add_child(player_block_label)
-	player_status_label = _make_label(
-		Vector2(48, 392), Vector2(430, 42), 13, Color(0.96, 0.82, 0.56)
-	)
+	player_status_label = _make_label(Vector2(48, 454), Vector2(550, 38), 13, Color(0.96, 0.82, 0.56))
 	interface.add_child(player_status_label)
 
 	for enemy_index in enemies.size():
 		var enemy: Dictionary = enemies[enemy_index]
 		var pos: Vector2 = enemy["sprite"].position
-		var hp_label := _make_label(
-			Vector2(pos.x - 180, 112),
-			Vector2(360, 42),
-			19,
-			Color(1.0, 0.86, 0.72)
-		)
+		var hp_label := _make_label(Vector2(pos.x - 180, 112), Vector2(360, 42), 19, Color(1.0, 0.86, 0.72))
 		hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		interface.add_child(hp_label)
 		enemy["hp_label"] = hp_label
-		var status_label := _make_label(
-			Vector2(pos.x - 180, 154),
-			Vector2(360, 34),
-			14,
-			Color(0.88, 0.72, 0.52)
-		)
+		var status_label := _make_label(Vector2(pos.x - 180, 154), Vector2(360, 34), 14, Color(0.88, 0.72, 0.52))
 		status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		interface.add_child(status_label)
 		enemy["status_label"] = status_label
@@ -216,16 +239,12 @@ func _build_runtime_ui() -> void:
 	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interface.add_child(line)
 
-	hint_label = _make_label(
-		Vector2(575, 658), Vector2(780, 40), 16, Color(0.95, 0.82, 0.58)
-	)
+	hint_label = _make_label(Vector2(575, 658), Vector2(780, 40), 16, Color(0.95, 0.82, 0.58))
 	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint_label.text = "ARRASTRA UNA CARTA SOBRE UN ENEMIGO O HACIA EL CENTRO"
 	interface.add_child(hint_label)
 
-	deck_label = _make_label(
-		Vector2(26, 1025), Vector2(480, 34), 13, Color(0.83, 0.78, 0.68)
-	)
+	deck_label = _make_label(Vector2(26, 1025), Vector2(480, 34), 13, Color(0.83, 0.78, 0.68))
 	interface.add_child(deck_label)
 
 	turn_button = Button.new()
@@ -265,9 +284,9 @@ func _begin_player_turn(first_turn := false) -> void:
 	_rebuild_hand()
 	_refresh_all_ui()
 	hint_label.text = (
-		"PRIMER TURNO · CLIC DERECHO PARA DESCARTAR · ARRASTRA PARA JUGAR"
+		"PRIMER TURNO · ARRASTRA UNA CARTA PARA JUGAR"
 		if first_turn
-		else "NUEVO TURNO · CLIC DERECHO PARA DESCARTAR · ARRASTRA PARA JUGAR"
+		else "NUEVO TURNO · ARRASTRA UNA CARTA PARA JUGAR"
 	)
 
 
@@ -277,53 +296,75 @@ func _rebuild_hand() -> void:
 			button.queue_free()
 	card_buttons.clear()
 
-	var hand_width := deck.hand.size() * CARD_SIZE.x + maxi(0, deck.hand.size() - 1) * CARD_GAP
-	var start_x := (1920.0 - hand_width) / 2.0
-	for card_index in deck.hand.size():
+	var count := deck.hand.size()
+	if count == 0:
+		return
+	var step := CARD_SIZE.x + CARD_GAP
+	var center := (count - 1) / 2.0
+	var start_x := 960.0 - CARD_SIZE.x / 2.0 - center * step
+	for card_index in count:
 		var card_id: StringName = deck.hand[card_index]
+		var offset := card_index - center
 		var button := TextureButton.new()
 		button.texture_normal = CARD_TEXTURES[card_id]
 		button.ignore_texture_size = true
 		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		button.clip_contents = false
 		button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		button.position = Vector2(start_x + card_index * (CARD_SIZE.x + CARD_GAP), CARD_Y)
 		button.size = CARD_SIZE
-		button.tooltip_text = "%s · Coste %d" % [
-			CardCatalog.CARDS[card_id]["name"],
-			CardCatalog.CARDS[card_id]["cost"],
-		]
+		button.pivot_offset = CARD_SIZE / 2.0
+		button.position = Vector2(start_x + card_index * step, CARD_Y + absf(offset) * CARD_FAN_LIFT)
+		button.rotation = deg_to_rad(offset * CARD_FAN_ROTATION)
+		button.z_index = card_index
+		button.tooltip_text = "%s · Coste %d" % [CardCatalog.CARDS[card_id]["name"], CardCatalog.CARDS[card_id]["cost"]]
 		button.set_meta("card_id", card_id)
 		button.gui_input.connect(_on_card_input.bind(button))
 		interface.add_child(button)
 		card_buttons.append(button)
 
 
+func _start_card_drag(button: TextureButton, card_id: StringName, pointer: Vector2) -> void:
+	drag_card = button
+	drag_card_id = card_id
+	drag_origin = button.position
+	drag_origin_rotation = button.rotation
+	drag_touch_position = pointer
+	button.rotation = 0.0
+	button.z_index = 100
+	button.modulate = Color(1.08, 1.08, 1.08)
+
+
+func _move_card_drag(pointer: Vector2) -> void:
+	if not is_instance_valid(drag_card):
+		return
+	var delta := pointer - drag_touch_position
+	drag_card.position += delta
+	drag_touch_position = pointer
+	_refresh_enemy_highlight(pointer)
+
+
 func _on_card_input(event: InputEvent, button: TextureButton) -> void:
 	if combat_finished:
 		return
 	var card_id: StringName = button.get_meta("card_id")
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			if discard_window_open and deck.discard(card_id):
-				hint_label.text = "%s DESCARTADA · ROBARÁS HASTA 5 EL PRÓXIMO TURNO" % (
-					CardCatalog.CARDS[card_id]["name"]
-				)
-				_rebuild_hand()
-				_refresh_all_ui()
-			return
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed:
-				drag_card = button
-				drag_card_id = card_id
-				drag_origin = button.position
-				button.z_index = 50
-				button.modulate = Color(1.08, 1.08, 1.08)
-			elif drag_card == button:
-				_finish_card_drag()
-	if event is InputEventMouseMotion and drag_card == button:
-		button.position += event.relative
-		_refresh_enemy_highlight(get_viewport().get_mouse_position())
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_start_card_drag(button, card_id, get_viewport().get_mouse_position())
+		elif drag_card == button:
+			_finish_card_drag()
+		button.accept_event()
+	elif event is InputEventMouseMotion and drag_card == button:
+		_move_card_drag(get_viewport().get_mouse_position())
+		button.accept_event()
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			_start_card_drag(button, card_id, event.position)
+		elif drag_card == button:
+			_finish_card_drag()
+		button.accept_event()
+	elif event is InputEventScreenDrag and drag_card == button:
+		_move_card_drag(event.position)
+		button.accept_event()
 
 
 func _finish_card_drag() -> void:
@@ -345,7 +386,8 @@ func _finish_card_drag() -> void:
 		return
 
 	drag_card.position = drag_origin
-	drag_card.z_index = 0
+	drag_card.rotation = drag_origin_rotation
+	drag_card.z_index = card_buttons.find(drag_card)
 	drag_card.modulate = Color.WHITE
 	drag_card = null
 	drag_card_id = &""
@@ -504,6 +546,8 @@ func _all_enemies_dead() -> bool:
 func _refresh_all_ui() -> void:
 	player_hp_label.text = "HP  %d / %d" % [player.hp, player.max_hp]
 	player_block_label.text = "DEF  %d" % player.block
+	player_hp_fill.size.x = 326.0 * clampf(float(player.hp) / float(player.max_hp), 0.0, 1.0)
+	player_block_fill.size.x = 326.0 * clampf(float(player.block) / 20.0, 0.0, 1.0)
 	player_status_label.text = _status_text(player)
 	deck_label.text = "MAZO %d   DESCARTE %d   MANO %d" % [
 		deck.draw_pile.size(),
