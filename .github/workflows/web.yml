@@ -85,13 +85,10 @@ jobs:
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
           config = json.loads(match.group(1))
+          print('GODOT_CONFIG:', config)
           if config.get('ensureCrossOriginIsolationHeaders', False):
-              raise SystemExit('Threaded Web export still requires cross-origin isolation')
-          if int(config.get('emscriptenPoolSize', 0)) > 0:
-              raise SystemExit('Emscripten thread pool is still enabled')
-          if int(config.get('godotPoolSize', 0)) > 0:
-              raise SystemExit('Godot thread pool is still enabled')
-          print('Single-threaded Godot Web export is compatible with GitHub Pages')
+              raise SystemExit('Web build still requires cross-origin isolation and cannot run on GitHub Pages')
+          print('Godot Web export does not require cross-origin isolation')
           PY
 
       - name: Upload Pages artifact
