@@ -68,6 +68,7 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import json
           import re
 
           root = Path('build/web')
@@ -83,12 +84,13 @@ jobs:
           match = re.search(r'const GODOT_CONFIG = (\{.*?\});', html)
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
-          config = match.group(1)
-          if '"ensureCrossOriginIsolationHeaders":true' in config:
+          config = json.loads(match.group(1))
+          if config.get('ensureCrossOriginIsolationHeaders', False):
               raise SystemExit('Threaded Web export still requires cross-origin isolation')
-          for key in ['"emscriptenPoolSize":0', '"godotPoolSize":0']:
-              if key not in config:
-                  raise SystemExit(f'Web export is not single-threaded: missing {key}')
+          if int(config.get('emscriptenPoolSize', 0)) > 0:
+              raise SystemExit('Emscripten thread pool is still enabled')
+          if int(config.get('godotPoolSize', 0)) > 0:
+              raise SystemExit('Godot thread pool is still enabled')
           print('Single-threaded Godot Web export is compatible with GitHub Pages')
           PY
 
