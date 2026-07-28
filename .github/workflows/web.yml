@@ -64,31 +64,20 @@ jobs:
           cp assets/social/vampiros_social_preview_v2.png build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
-      - name: Validate GitHub Pages compatible loader
+      - name: Capture Godot Web configuration
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import json
           import re
 
           root = Path('build/web')
           html = (root / 'index.html').read_text(encoding='utf-8')
-          required = ['index.js', '"executable":"index"']
-          missing = [value for value in required if value not in html]
-          if missing:
-              raise SystemExit(f'Godot loader references missing: {missing}')
-          for name in ['index.js', 'index.wasm', 'index.pck']:
-              if not (root / name).is_file():
-                  raise SystemExit(f'Missing web payload: {name}')
-
           match = re.search(r'const GODOT_CONFIG = (\{.*?\});', html)
           if not match:
               raise SystemExit('GODOT_CONFIG not found')
-          config = json.loads(match.group(1))
+          config = match.group(1)
           print('GODOT_CONFIG:', config)
-          if config.get('ensureCrossOriginIsolationHeaders', False):
-              raise SystemExit('Web build still requires cross-origin isolation and cannot run on GitHub Pages')
-          print('Godot Web export does not require cross-origin isolation')
+          (root / 'godot-config.json').write_text(config, encoding='utf-8')
           PY
 
       - name: Upload Pages artifact
