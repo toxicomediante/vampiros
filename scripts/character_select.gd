@@ -48,6 +48,13 @@ func _ready() -> void:
 	_refresh_control_icons()
 	_play_intro()
 
+
+func _exit_tree() -> void:
+	if background_music != null:
+		background_music.stop()
+		background_music.stream = null
+
+
 func _configure_music_loop() -> void:
 	var ogg_stream := background_music.stream as AudioStreamOggVorbis
 	if ogg_stream != null:

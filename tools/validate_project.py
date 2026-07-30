@@ -18,7 +18,9 @@ os.chdir(ROOT)
 REQUIRED_FILES = (
     Path("project.godot"),
     Path("export_presets.cfg"),
-    Path("assets/audio/neon_blood_drive.ogg"),
+    Path("assets/audio/title_la_noche_nos_llama.ogg"),
+    Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
+    Path("assets/audio/combat_ultima_ronda_v2.ogg"),
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
     Path("assets/ui/combat/energy_states.png"),
@@ -27,8 +29,6 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/hp_bar_fill.png"),
     Path("assets/ui/combat/def_bar_base.png"),
     Path("assets/ui/combat/def_bar_fill.png"),
-    Path("assets/ui/combat/portraits/juan.png"),
-    Path("assets/ui/combat/portraits/michu.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
     Path("scripts/combat.gd"),
@@ -66,9 +66,19 @@ def validate_required_files() -> None:
     if missing:
         fail("missing required files: " + ", ".join(missing))
 
-    music = Path("assets/audio/neon_blood_drive.ogg")
-    if music.stat().st_size < 100_000 or music.read_bytes()[:4] != b"OggS":
-        fail("background music is missing or is not a valid committed OGG file")
+    music_paths = (
+        Path("assets/audio/title_la_noche_nos_llama.ogg"),
+        Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
+        Path("assets/audio/combat_ultima_ronda_v2.ogg"),
+    )
+    music_payloads = []
+    for music in music_paths:
+        payload = music.read_bytes()
+        if music.stat().st_size < 100_000 or payload[:4] != b"OggS":
+            fail(f"{music} is missing or is not a valid committed OGG file")
+        music_payloads.append(payload)
+    if len(set(music_payloads)) != len(music_paths):
+        fail("title, overworld, and combat must use three distinct music files")
 
 
 def validate_resource_paths() -> None:
@@ -81,6 +91,29 @@ def validate_resource_paths() -> None:
                 missing.append(f"{source}: {reference}")
     if missing:
         fail("missing res:// resources:\n  " + "\n  ".join(sorted(set(missing))))
+
+
+def validate_music_routing() -> None:
+    expected = {
+        Path("scenes/main.tscn"): "res://assets/audio/title_la_noche_nos_llama.ogg",
+        Path("scenes/overworld.tscn"): (
+            "res://assets/audio/overworld_luces_entre_la_bruma.ogg"
+        ),
+        Path("scenes/combat.tscn"): "res://assets/audio/combat_ultima_ronda_v2.ogg",
+    }
+    expected_files = sorted(
+        Path(path.removeprefix("res://")) for path in expected.values()
+    )
+    actual_files = sorted(Path("assets/audio").glob("*.ogg"))
+    if actual_files != expected_files:
+        fail(
+            "runtime music set does not match title/overworld/combat routing: "
+            f"expected={expected_files}, actual={actual_files}"
+        )
+    for scene, music_path in expected.items():
+        text = scene.read_text(encoding="utf-8")
+        if text.count(music_path) != 1:
+            fail(f"{scene} does not reference exactly one {music_path}")
 
 
 def validate_asset_boundaries() -> None:
@@ -120,13 +153,18 @@ def validate_asset_boundaries() -> None:
             f"missing={missing}, unexpected={unexpected}"
         )
 
-    ignored = subprocess.run(
-        ["git", "check-ignore", "--quiet", "assets/audio/neon_blood_drive.ogg"],
-        cwd=ROOT,
-        check=False,
-    )
-    if ignored.returncode == 0:
-        fail("runtime audio is ignored by Git")
+    for music in (
+        "assets/audio/title_la_noche_nos_llama.ogg",
+        "assets/audio/overworld_luces_entre_la_bruma.ogg",
+        "assets/audio/combat_ultima_ronda_v2.ogg",
+    ):
+        ignored = subprocess.run(
+            ["git", "check-ignore", "--quiet", music],
+            cwd=ROOT,
+            check=False,
+        )
+        if ignored.returncode == 0:
+            fail(f"runtime audio is ignored by Git: {music}")
 
 
 def validate_combat_loading() -> None:
@@ -184,6 +222,8 @@ def validate_combat_loading() -> None:
     combat_scene = Path("scenes/combat.tscn").read_text(encoding="utf-8")
     if "color = Color(0.008, 0.012, 0.025, 0)" not in combat_scene:
         fail("combat curtain is not fail-open before runtime initialization")
+    if "PORTRAIT_SHEET_PATHS" in combat_script or "_player_portrait_texture" in combat_script:
+        fail("compact combat HUD still references the removed player portrait")
 
 
 def validate_export_settings() -> None:
@@ -282,6 +322,7 @@ def main() -> None:
     try:
         validate_required_files()
         validate_resource_paths()
+        validate_music_routing()
         validate_asset_boundaries()
         validate_combat_loading()
         validate_export_settings()

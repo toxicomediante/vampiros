@@ -65,6 +65,7 @@ func _run() -> void:
 		var player_hud := combat.get_node_or_null("Interface/PlayerHUD")
 		var background := combat.get_node_or_null("Background") as TextureRect
 		var energy := combat.get_node_or_null("Interface/EnergyCounter") as TextureRect
+		var card_preview := combat.get_node_or_null("Interface/CardPreview") as TextureRect
 		var card_buttons: Array = combat.get("card_buttons")
 		var card_cache: Dictionary = combat.get("card_texture_cache")
 		var enemies: Array = combat.get("enemies")
@@ -78,7 +79,11 @@ func _run() -> void:
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
 		if player_hud != null:
 			_expect(
-				_count_textured_rects(player_hud) >= 6,
+				player_hud.size == Vector2(640, 128),
+				"%s conserva el HUD grande anterior" % character_id
+			)
+			_expect(
+				_count_textured_rects(player_hud) == 5,
 				"%s construye una UI HP/DEF sin todas sus texturas" % character_id
 			)
 		_expect(
@@ -107,6 +112,79 @@ func _run() -> void:
 			_expect(
 				button.texture_normal != null,
 				"%s construye una carta visible sin textura" % character_id
+			)
+		_expect(card_preview != null, "%s no crea la vista ampliada" % character_id)
+		if card_preview != null and not card_buttons.is_empty():
+			var first_card := card_buttons[0] as TextureButton
+			combat.call("_on_card_hovered", first_card)
+			_expect(
+				card_preview.visible
+				and card_preview.size == Vector2(360, 540),
+				"%s no amplía la carta al hacer hover" % character_id
+			)
+			combat.call("_on_card_unhovered", first_card)
+			_expect(
+				not card_preview.visible,
+				"%s no cierra la vista al salir del hover" % character_id
+			)
+			combat.call("_select_card", first_card)
+			_expect(
+				card_preview.visible,
+				"%s no amplía la carta seleccionada" % character_id
+			)
+			combat.call("_select_card", first_card)
+
+			var local_grab := Vector2(52, 94)
+			var touch := InputEventScreenTouch.new()
+			touch.position = local_grab
+			var expected_pointer := first_card.get_global_transform() * local_grab
+			var converted_pointer: Vector2 = combat.call(
+				"_card_event_canvas_position",
+				first_card,
+				touch
+			)
+			_expect(
+				converted_pointer.distance_to(expected_pointer) < 0.1,
+				"%s mezcla coordenadas locales y globales al tocar" % character_id
+			)
+
+			var origin := first_card.position
+			var moved_pointer := expected_pointer + Vector2(48, -48)
+			combat.call(
+				"_begin_card_press",
+				first_card,
+				first_card.get_meta("card_id"),
+				expected_pointer,
+				0
+			)
+			combat.call(
+				"_update_card_press",
+				first_card,
+				moved_pointer,
+				0
+			)
+			_expect(
+				combat.get("drag_card") == first_card,
+				"%s no inicia el arrastre tras superar el umbral" % character_id
+			)
+			var drag_grab_local: Vector2 = combat.get("drag_grab_local")
+			_expect(
+				(
+					first_card.get_global_transform()
+					* drag_grab_local
+				).distance_to(moved_pointer) < 0.1,
+				"%s pierde el punto exacto donde se agarró la carta" % character_id
+			)
+			combat.call(
+				"_finish_card_press",
+				first_card,
+				moved_pointer,
+				0
+			)
+			_expect(
+				first_card.position.distance_to(origin) < 0.1
+				and combat.get("drag_card") == null,
+				"%s no devuelve una carta tras un destino inválido" % character_id
 			)
 		_expect(
 			not card_cache.is_empty() and card_cache.size() <= 3,
@@ -144,5 +222,5 @@ func _expect(condition: bool, message: String) -> void:
 
 func _finish() -> void:
 	if not failed:
-		print("COMBAT SMOKE OK: Michu, Juan, UI, telón y carga selectiva")
+		print("COMBAT SMOKE OK: Michu, Juan, HUD compacto, cartas y carga selectiva")
 	quit(1 if failed else 0)

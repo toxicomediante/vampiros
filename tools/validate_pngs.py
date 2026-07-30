@@ -17,7 +17,7 @@ EXPECTED_RUNTIME_TEXTURES = {
     Path("assets/enemies/tarantula.png"): (724, 543),
     Path("assets/enemies/vampiro_malleiro.png"): (543, 724),
     Path("assets/ui/combat/energy_states.png"): (1024, 373),
-    Path("assets/ui/combat/hp_def_frame.png"): (767, 210),
+    Path("assets/ui/combat/hp_def_frame.png"): (640, 128),
     Path("assets/ui/combat/hp_bar_base.png"): (453, 41),
     Path("assets/ui/combat/hp_bar_fill.png"): (453, 41),
     Path("assets/ui/combat/def_bar_base.png"): (453, 34),

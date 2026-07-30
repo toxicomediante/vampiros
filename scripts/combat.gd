@@ -15,16 +15,18 @@ const CARD_GAP := -78.0
 const CARD_Y := 748.0
 const CARD_FAN_ROTATION := 6.0
 const CARD_FAN_LIFT := 17.0
+const CARD_PREVIEW_SIZE := Vector2(360.0, 540.0)
+const CARD_PREVIEW_Y := 385.0
+const CARD_DRAG_THRESHOLD := 14.0
+const CARD_DRAG_SCALE := Vector2(1.12, 1.12)
 const PLAY_LINE_Y := 700.0
 const MAX_BLOCK_DISPLAY := 20.0
 const PLAYER_UI_POSITION := Vector2(24.0, 140.0)
-const PLAYER_UI_SIZE := Vector2(720.0, 197.0)
-const PLAYER_HP_BAR_POSITION := Vector2(226.0, 68.0)
-const PLAYER_HP_BAR_SIZE := Vector2(425.0, 38.0)
-const PLAYER_DEF_BAR_POSITION := Vector2(228.0, 132.0)
-const PLAYER_DEF_BAR_SIZE := Vector2(425.0, 32.0)
-const PLAYER_PORTRAIT_POSITION := Vector2(122.0, 60.0)
-const PLAYER_PORTRAIT_SIZE := Vector2(70.0, 80.0)
+const PLAYER_UI_SIZE := Vector2(640.0, 128.0)
+const PLAYER_HP_BAR_POSITION := Vector2(48.0, 15.0)
+const PLAYER_HP_BAR_SIZE := Vector2(548.0, 41.0)
+const PLAYER_DEF_BAR_POSITION := Vector2(48.0, 71.0)
+const PLAYER_DEF_BAR_SIZE := Vector2(548.0, 41.0)
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -59,10 +61,6 @@ const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 const CHARACTER_SHEET_PATHS := {
 	&"juan": "res://assets/characters/combat/juan_combat_idle.png",
 	&"michu": "res://assets/characters/combat/michu_combat_idle.png",
-}
-const PORTRAIT_SHEET_PATHS := {
-	&"juan": "res://assets/ui/combat/portraits/juan.png",
-	&"michu": "res://assets/ui/combat/portraits/michu.png",
 }
 const CARD_TEXTURE_PATHS := {
 	&"guantazo": "res://assets/cards/juan/guantazo.png",
@@ -116,7 +114,15 @@ var drag_card: TextureButton
 var drag_card_id: StringName
 var drag_origin := Vector2.ZERO
 var drag_origin_rotation := 0.0
+var drag_origin_scale := Vector2.ONE
 var drag_pointer_position := Vector2.ZERO
+var drag_grab_local := Vector2.ZERO
+var pressed_card: TextureButton
+var pressed_card_id: StringName
+var pressed_pointer_position := Vector2.ZERO
+var pressed_pointer_index := -1
+var hovered_card: TextureButton
+var selected_card: TextureButton
 var discard_window_open := true
 var discard_mode := false
 var combat_finished := false
@@ -130,6 +136,7 @@ var deck_label: Label
 var hint_label: Label
 var discard_button: Button
 var turn_button: Button
+var card_preview: TextureRect
 
 
 func _ready() -> void:
@@ -154,6 +161,12 @@ func _ready() -> void:
 	sound_button.pressed.connect(_toggle_sound)
 	_refresh_control_icons()
 	_play_scene_intro()
+
+
+func _exit_tree() -> void:
+	if background_music != null:
+		background_music.stop()
+		background_music.stream = null
 
 
 func _configure_music_loop() -> void:
@@ -262,18 +275,10 @@ func _build_runtime_ui() -> void:
 	)
 	player_ui.add_child(player_frame)
 
-	var portrait := _make_texture_rect(
-		_player_portrait_texture(),
-		PLAYER_PORTRAIT_POSITION,
-		PLAYER_PORTRAIT_SIZE,
-		TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	)
-	player_ui.add_child(portrait)
-
 	player_hp_label = _make_label(
 		PLAYER_HP_BAR_POSITION,
 		PLAYER_HP_BAR_SIZE,
-		15,
+		16,
 		Color(1.0, 0.92, 0.82)
 	)
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -282,14 +287,14 @@ func _build_runtime_ui() -> void:
 	player_block_label = _make_label(
 		PLAYER_DEF_BAR_POSITION,
 		PLAYER_DEF_BAR_SIZE,
-		15,
+		16,
 		Color(0.78, 0.9, 1.0)
 	)
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	player_ui.add_child(player_block_label)
 	player_status_label = _make_label(
-		Vector2(38, 348), Vector2(700, 34), 13, Color(0.96, 0.82, 0.56)
+		Vector2(38, 278), Vector2(640, 34), 13, Color(0.96, 0.82, 0.56)
 	)
 	interface.add_child(player_status_label)
 
@@ -355,6 +360,17 @@ func _build_runtime_ui() -> void:
 	turn_button.pressed.connect(_end_player_turn)
 	interface.add_child(turn_button)
 
+	card_preview = TextureRect.new()
+	card_preview.name = "CardPreview"
+	card_preview.size = CARD_PREVIEW_SIZE
+	card_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	card_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	card_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	card_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card_preview.z_index = 90
+	card_preview.visible = false
+	interface.add_child(card_preview)
+
 	interface.move_child(curtain, interface.get_child_count() - 1)
 
 
@@ -389,13 +405,6 @@ func _make_bar_clip(
 	var fill := _make_texture_rect(texture, Vector2.ZERO, size)
 	clip.add_child(fill)
 	return clip
-
-
-func _player_portrait_texture() -> Texture2D:
-	var character_id: StringName = GameState.selected_character
-	if not PORTRAIT_SHEET_PATHS.has(character_id):
-		character_id = &"michu"
-	return _load_texture(PORTRAIT_SHEET_PATHS[character_id])
 
 
 func _load_texture(resource_path: String) -> Texture2D:
@@ -451,6 +460,7 @@ func _begin_player_turn(first_turn := false) -> void:
 
 
 func _rebuild_hand() -> void:
+	_reset_card_interaction()
 	for button in card_buttons:
 		if is_instance_valid(button):
 			button.queue_free()
@@ -471,6 +481,8 @@ func _rebuild_hand() -> void:
 		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		button.clip_contents = false
 		button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		button.focus_mode = Control.FOCUS_NONE
+		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.size = CARD_SIZE
 		button.pivot_offset = CARD_SIZE / 2.0
 		button.position = Vector2(
@@ -485,6 +497,8 @@ func _rebuild_hand() -> void:
 		]
 		button.set_meta("card_id", card_id)
 		button.gui_input.connect(_on_card_input.bind(button))
+		button.mouse_entered.connect(_on_card_hovered.bind(button))
+		button.mouse_exited.connect(_on_card_unhovered.bind(button))
 		interface.add_child(button)
 		card_buttons.append(button)
 
@@ -498,16 +512,23 @@ func _start_card_drag(
 	drag_card_id = card_id
 	drag_origin = button.position
 	drag_origin_rotation = button.rotation
+	drag_origin_scale = button.scale
 	drag_pointer_position = pointer
+	drag_grab_local = button.get_global_transform().affine_inverse() * pointer
 	button.rotation = 0.0
+	button.scale = CARD_DRAG_SCALE
 	button.z_index = 100
 	button.modulate = Color(1.08, 1.08, 1.08)
+	button.global_position += (
+		pointer - button.get_global_transform() * drag_grab_local
+	)
+	_hide_card_preview()
 
 
 func _move_card_drag(pointer: Vector2) -> void:
 	if not is_instance_valid(drag_card):
 		return
-	drag_card.position += pointer - drag_pointer_position
+	drag_card.global_position += pointer - drag_pointer_position
 	drag_pointer_position = pointer
 	_refresh_enemy_highlight(pointer)
 
@@ -545,12 +566,25 @@ func _on_card_input(event: InputEvent, button: TextureButton) -> void:
 					_discard_card(card_id)
 					button.accept_event()
 					return
-				_start_card_drag(button, card_id, get_viewport().get_mouse_position())
-			elif drag_card == button:
-				_finish_card_drag(get_viewport().get_mouse_position())
+				_begin_card_press(
+					button,
+					card_id,
+					_card_event_canvas_position(button, event),
+					-1
+				)
+			else:
+				_finish_card_press(
+					button,
+					_card_event_canvas_position(button, event),
+					-1
+				)
 			button.accept_event()
-	elif event is InputEventMouseMotion and drag_card == button:
-		_move_card_drag(get_viewport().get_mouse_position())
+	elif event is InputEventMouseMotion and pressed_card == button:
+		_update_card_press(
+			button,
+			_card_event_canvas_position(button, event),
+			-1
+		)
 		button.accept_event()
 	elif event is InputEventScreenTouch:
 		if event.pressed:
@@ -558,13 +592,157 @@ func _on_card_input(event: InputEvent, button: TextureButton) -> void:
 				_discard_card(card_id)
 				button.accept_event()
 				return
-			_start_card_drag(button, card_id, event.position)
-		elif drag_card == button:
-			_finish_card_drag(event.position)
+			_begin_card_press(
+				button,
+				card_id,
+				_card_event_canvas_position(button, event),
+				event.index
+			)
+		else:
+			_finish_card_press(
+				button,
+				_card_event_canvas_position(button, event),
+				event.index
+			)
 		button.accept_event()
-	elif event is InputEventScreenDrag and drag_card == button:
-		_move_card_drag(event.position)
+	elif event is InputEventScreenDrag and pressed_card == button:
+		_update_card_press(
+			button,
+			_card_event_canvas_position(button, event),
+			event.index
+		)
 		button.accept_event()
+
+
+func _card_event_canvas_position(
+	button: TextureButton,
+	event: InputEvent
+) -> Vector2:
+	# GUI input positions are local to the Control. Converting through the
+	# card transform keeps mouse and touch in the same CanvasLayer coordinates.
+	var local_position := Vector2.ZERO
+	if event is InputEventMouse:
+		local_position = (event as InputEventMouse).position
+	elif event is InputEventScreenTouch:
+		local_position = (event as InputEventScreenTouch).position
+	elif event is InputEventScreenDrag:
+		local_position = (event as InputEventScreenDrag).position
+	return button.get_global_transform() * local_position
+
+
+func _begin_card_press(
+	button: TextureButton,
+	card_id: StringName,
+	pointer: Vector2,
+	pointer_index: int
+) -> void:
+	if pressed_card != null:
+		return
+	pressed_card = button
+	pressed_card_id = card_id
+	pressed_pointer_position = pointer
+	pressed_pointer_index = pointer_index
+
+
+func _update_card_press(
+	button: TextureButton,
+	pointer: Vector2,
+	pointer_index: int
+) -> void:
+	if pressed_card != button or pressed_pointer_index != pointer_index:
+		return
+	if drag_card == null:
+		if pointer.distance_to(pressed_pointer_position) < CARD_DRAG_THRESHOLD:
+			return
+		_start_card_drag(
+			button,
+			pressed_card_id,
+			pressed_pointer_position
+		)
+	_move_card_drag(pointer)
+
+
+func _finish_card_press(
+	button: TextureButton,
+	pointer: Vector2,
+	pointer_index: int
+) -> void:
+	if pressed_card != button or pressed_pointer_index != pointer_index:
+		return
+	if drag_card == button:
+		_finish_card_drag(pointer)
+	else:
+		_select_card(button)
+	pressed_card = null
+	pressed_card_id = &""
+	pressed_pointer_index = -1
+
+
+func _on_card_hovered(button: TextureButton) -> void:
+	if drag_card != null or pressed_card != null:
+		return
+	hovered_card = button
+	_show_card_preview(button)
+
+
+func _on_card_unhovered(button: TextureButton) -> void:
+	if hovered_card == button:
+		hovered_card = null
+	_restore_card_preview()
+
+
+func _select_card(button: TextureButton) -> void:
+	selected_card = null if selected_card == button else button
+	_restore_card_preview()
+
+
+func _show_card_preview(button: TextureButton) -> void:
+	if not is_instance_valid(card_preview) or not is_instance_valid(button):
+		return
+	card_preview.texture = button.texture_normal
+	var card_center := button.get_global_transform() * button.pivot_offset
+	card_preview.global_position = Vector2(
+		clampf(
+			card_center.x - CARD_PREVIEW_SIZE.x / 2.0,
+			280.0,
+			1920.0 - 280.0 - CARD_PREVIEW_SIZE.x
+		),
+		CARD_PREVIEW_Y
+	)
+	card_preview.visible = true
+
+
+func _restore_card_preview() -> void:
+	if drag_card != null:
+		_hide_card_preview()
+	elif is_instance_valid(hovered_card):
+		_show_card_preview(hovered_card)
+	elif is_instance_valid(selected_card):
+		_show_card_preview(selected_card)
+	else:
+		_hide_card_preview()
+
+
+func _hide_card_preview() -> void:
+	if is_instance_valid(card_preview):
+		card_preview.visible = false
+
+
+func _reset_card_interaction() -> void:
+	if is_instance_valid(drag_card):
+		drag_card.position = drag_origin
+		drag_card.rotation = drag_origin_rotation
+		drag_card.scale = drag_origin_scale
+		drag_card.modulate = Color.WHITE
+	pressed_card = null
+	pressed_card_id = &""
+	pressed_pointer_index = -1
+	drag_card = null
+	drag_card_id = &""
+	hovered_card = null
+	selected_card = null
+	_clear_enemy_highlight()
+	_hide_card_preview()
 
 
 func _finish_card_drag(drop_position: Vector2) -> void:
@@ -579,6 +757,8 @@ func _finish_card_drag(drop_position: Vector2) -> void:
 		valid_drop = drop_position.y < PLAY_LINE_Y
 
 	if valid_drop and _try_play_card(drag_card_id, target_index):
+		if is_instance_valid(drag_card):
+			drag_card.visible = false
 		drag_card = null
 		drag_card_id = &""
 		_clear_enemy_highlight()
@@ -586,11 +766,13 @@ func _finish_card_drag(drop_position: Vector2) -> void:
 
 	drag_card.position = drag_origin
 	drag_card.rotation = drag_origin_rotation
+	drag_card.scale = drag_origin_scale
 	drag_card.z_index = card_buttons.find(drag_card)
 	drag_card.modulate = Color.WHITE
 	drag_card = null
 	drag_card_id = &""
 	_clear_enemy_highlight()
+	_restore_card_preview()
 
 
 func _try_play_card(card_id: StringName, target_index: int) -> bool:
@@ -654,7 +836,7 @@ func _resolve_card(card_data: Dictionary, target_index: int) -> void:
 
 
 func _end_player_turn() -> void:
-	if combat_finished or drag_card != null:
+	if combat_finished or drag_card != null or pressed_card != null:
 		return
 	turn_button.disabled = true
 	discard_window_open = false
@@ -808,6 +990,7 @@ func set_energy(value: int) -> void:
 
 func _finish_combat(victory: bool) -> void:
 	combat_finished = true
+	_reset_card_interaction()
 	if victory:
 		GameState.run_hp = player.hp
 	turn_button.disabled = true

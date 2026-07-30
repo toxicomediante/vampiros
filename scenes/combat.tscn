@@ -1,7 +1,7 @@
 [gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat.gd" id="1_script"]
-[ext_resource type="AudioStream" path="res://assets/audio/neon_blood_drive.ogg" id="2_music"]
+[ext_resource type="AudioStream" path="res://assets/audio/combat_ultima_ronda_v2.ogg" id="2_music"]
 
 [node name="Combat" type="Control"]
 layout_mode = 3
@@ -25,7 +25,7 @@ stretch_mode = 6
 
 [node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
 stream = ExtResource("2_music")
-volume_db = -11.0
+volume_db = -8.0
 autoplay = true
 
 [node name="Enemies" type="Node2D" parent="."]
