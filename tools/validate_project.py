@@ -23,6 +23,10 @@ REQUIRED_FILES = (
     Path("assets/enemies/vampiro_malleiro.png"),
     Path("assets/ui/combat/energy_states.png"),
     Path("assets/ui/combat/hp_def_frame.png"),
+    Path("assets/ui/combat/hp_bar_base.png"),
+    Path("assets/ui/combat/hp_bar_fill.png"),
+    Path("assets/ui/combat/def_bar_base.png"),
+    Path("assets/ui/combat/def_bar_fill.png"),
     Path("art_source/.gdignore"),
 )
 RESOURCE_PATTERN = re.compile(r"res://[A-Za-z0-9_./@+\-]+")

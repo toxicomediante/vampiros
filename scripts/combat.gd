@@ -16,8 +16,16 @@ const CARD_Y := 748.0
 const CARD_FAN_ROTATION := 6.0
 const CARD_FAN_LIFT := 17.0
 const PLAY_LINE_Y := 700.0
-const PLAYER_BAR_WIDTH := 286.0
 const MAX_BLOCK_DISPLAY := 20.0
+const PLAYER_UI_POSITION := Vector2(24.0, 140.0)
+const PLAYER_UI_SIZE := Vector2(720.0, 197.0)
+const PLAYER_HP_BAR_POSITION := Vector2(226.0, 68.0)
+const PLAYER_HP_BAR_SIZE := Vector2(425.0, 38.0)
+const PLAYER_DEF_BAR_POSITION := Vector2(228.0, 132.0)
+const PLAYER_DEF_BAR_SIZE := Vector2(425.0, 32.0)
+const PLAYER_PORTRAIT_POSITION := Vector2(122.0, 60.0)
+const PLAYER_PORTRAIT_SIZE := Vector2(70.0, 80.0)
+const PORTRAIT_REGION := Rect2i(0, 40, 180, 180)
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -53,6 +61,10 @@ const CHARACTER_SHEETS := {
 	&"juan": preload("res://assets/characters/combat/juan_combat_idle.png"),
 	&"michu": preload("res://assets/characters/combat/michu_combat_idle.png"),
 }
+const PORTRAIT_SHEETS := {
+	&"juan": preload("res://assets/characters/juan_idle.png"),
+	&"michu": preload("res://assets/characters/michu_idle.png"),
+}
 const CARD_TEXTURES := {
 	&"guantazo": preload("res://assets/cards/juan/guantazo.png"),
 	&"juan_guardia": preload("res://assets/cards/juan/guardia.png"),
@@ -76,6 +88,10 @@ const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
 const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 const ENERGY_STATES_TEXTURE := preload("res://assets/ui/combat/energy_states.png")
 const HP_DEF_FRAME_TEXTURE := preload("res://assets/ui/combat/hp_def_frame.png")
+const HP_BAR_BASE_TEXTURE := preload("res://assets/ui/combat/hp_bar_base.png")
+const HP_BAR_FILL_TEXTURE := preload("res://assets/ui/combat/hp_bar_fill.png")
+const DEF_BAR_BASE_TEXTURE := preload("res://assets/ui/combat/def_bar_base.png")
+const DEF_BAR_FILL_TEXTURE := preload("res://assets/ui/combat/def_bar_fill.png")
 
 @onready var background: TextureRect = $Background
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
@@ -106,8 +122,8 @@ var combat_finished := false
 
 var player_hp_label: Label
 var player_block_label: Label
-var player_hp_fill: ColorRect
-var player_block_fill: ColorRect
+var player_hp_clip: Control
+var player_block_clip: Control
 var player_status_label: Label
 var deck_label: Label
 var hint_label: Label
@@ -184,44 +200,75 @@ func _build_enemies() -> void:
 
 
 func _build_runtime_ui() -> void:
-	var player_frame := TextureRect.new()
-	player_frame.texture = HP_DEF_FRAME_TEXTURE
-	player_frame.position = Vector2(34, 140)
-	player_frame.size = Vector2(430, 242)
-	player_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	player_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	player_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	player_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interface.add_child(player_frame)
+	var player_ui := Control.new()
+	player_ui.position = PLAYER_UI_POSITION
+	player_ui.size = PLAYER_UI_SIZE
+	player_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_ui)
 
-	player_hp_fill = ColorRect.new()
-	player_hp_fill.position = Vector2(157, 164)
-	player_hp_fill.size = Vector2(PLAYER_BAR_WIDTH, 76)
-	player_hp_fill.color = Color(0.72, 0.035, 0.055, 0.9)
-	player_hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interface.add_child(player_hp_fill)
+	player_ui.add_child(
+		_make_texture_rect(
+			HP_BAR_BASE_TEXTURE,
+			PLAYER_HP_BAR_POSITION,
+			PLAYER_HP_BAR_SIZE
+		)
+	)
+	player_ui.add_child(
+		_make_texture_rect(
+			DEF_BAR_BASE_TEXTURE,
+			PLAYER_DEF_BAR_POSITION,
+			PLAYER_DEF_BAR_SIZE
+		)
+	)
 
-	player_block_fill = ColorRect.new()
-	player_block_fill.position = Vector2(157, 264)
-	player_block_fill.size = Vector2(0, 76)
-	player_block_fill.color = Color(0.08, 0.34, 0.62, 0.9)
-	player_block_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interface.add_child(player_block_fill)
+	player_hp_clip = _make_bar_clip(
+		HP_BAR_FILL_TEXTURE,
+		PLAYER_HP_BAR_POSITION,
+		PLAYER_HP_BAR_SIZE
+	)
+	player_ui.add_child(player_hp_clip)
+	player_block_clip = _make_bar_clip(
+		DEF_BAR_FILL_TEXTURE,
+		PLAYER_DEF_BAR_POSITION,
+		PLAYER_DEF_BAR_SIZE
+	)
+	player_ui.add_child(player_block_clip)
+
+	var player_frame := _make_texture_rect(
+		HP_DEF_FRAME_TEXTURE,
+		Vector2.ZERO,
+		PLAYER_UI_SIZE
+	)
+	player_ui.add_child(player_frame)
+
+	var portrait := _make_texture_rect(
+		_player_portrait_texture(),
+		PLAYER_PORTRAIT_POSITION,
+		PLAYER_PORTRAIT_SIZE,
+		TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	)
+	player_ui.add_child(portrait)
 
 	player_hp_label = _make_label(
-		Vector2(157, 181), Vector2(286, 42), 18, Color(1.0, 0.92, 0.82)
+		PLAYER_HP_BAR_POSITION,
+		PLAYER_HP_BAR_SIZE,
+		15,
+		Color(1.0, 0.92, 0.82)
 	)
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	interface.add_child(player_hp_label)
+	player_ui.add_child(player_hp_label)
 	player_block_label = _make_label(
-		Vector2(157, 281), Vector2(286, 42), 18, Color(0.78, 0.9, 1.0)
+		PLAYER_DEF_BAR_POSITION,
+		PLAYER_DEF_BAR_SIZE,
+		15,
+		Color(0.78, 0.9, 1.0)
 	)
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	interface.add_child(player_block_label)
+	player_ui.add_child(player_block_label)
 	player_status_label = _make_label(
-		Vector2(48, 392), Vector2(430, 42), 13, Color(0.96, 0.82, 0.56)
+		Vector2(38, 348), Vector2(700, 34), 13, Color(0.96, 0.82, 0.56)
 	)
 	interface.add_child(player_status_label)
 
@@ -288,6 +335,48 @@ func _build_runtime_ui() -> void:
 	interface.add_child(turn_button)
 
 	interface.move_child(curtain, interface.get_child_count() - 1)
+
+
+func _make_texture_rect(
+	texture: Texture2D,
+	position: Vector2,
+	size: Vector2,
+	stretch_mode := TextureRect.STRETCH_SCALE
+) -> TextureRect:
+	var texture_rect := TextureRect.new()
+	texture_rect.texture = texture
+	texture_rect.position = position
+	texture_rect.size = size
+	texture_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	texture_rect.stretch_mode = stretch_mode
+	texture_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	texture_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return texture_rect
+
+
+func _make_bar_clip(
+	texture: Texture2D,
+	position: Vector2,
+	size: Vector2
+) -> Control:
+	var clip := Control.new()
+	clip.position = position
+	clip.size = size
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fill := _make_texture_rect(texture, Vector2.ZERO, size)
+	clip.add_child(fill)
+	return clip
+
+
+func _player_portrait_texture() -> AtlasTexture:
+	var character_id: StringName = GameState.selected_character
+	if not PORTRAIT_SHEETS.has(character_id):
+		character_id = &"michu"
+	var portrait := AtlasTexture.new()
+	portrait.atlas = PORTRAIT_SHEETS[character_id]
+	portrait.region = PORTRAIT_REGION
+	return portrait
 
 
 func _make_label(position: Vector2, size: Vector2, font_size: int, color: Color) -> Label:
@@ -621,12 +710,12 @@ func _all_enemies_dead() -> bool:
 func _refresh_all_ui() -> void:
 	player_hp_label.text = "HP  %d / %d" % [player.hp, player.max_hp]
 	player_block_label.text = "DEF  %d" % player.block
-	player_hp_fill.size.x = (
-		PLAYER_BAR_WIDTH
+	player_hp_clip.size.x = (
+		PLAYER_HP_BAR_SIZE.x
 		* clampf(float(player.hp) / float(player.max_hp), 0.0, 1.0)
 	)
-	player_block_fill.size.x = (
-		PLAYER_BAR_WIDTH
+	player_block_clip.size.x = (
+		PLAYER_DEF_BAR_SIZE.x
 		* clampf(float(player.block) / MAX_BLOCK_DISPLAY, 0.0, 1.0)
 	)
 	player_status_label.text = _status_text(player)

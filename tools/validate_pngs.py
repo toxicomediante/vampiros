@@ -16,6 +16,12 @@ EXPECTED_ANIMATION_SHEETS = {
 REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
+    Path("assets/ui/combat/hp_def_frame.png"),
+    Path("assets/ui/combat/hp_bar_base.png"),
+    Path("assets/ui/combat/hp_bar_fill.png"),
+    Path("assets/ui/combat/def_bar_base.png"),
+    Path("assets/ui/combat/def_bar_fill.png"),
+    *Path("assets/cards").rglob("*.png"),
 }
 
 LOCKED_COMBAT_IDLE_REGIONS = {
@@ -215,14 +221,14 @@ def validate(path: Path) -> None:
     if path in REQUIRED_TRANSPARENT_ASSETS:
         if color_type != 6 or bit_depth != 8 or interlace_method != 0:
             raise ValueError(
-                "runtime enemy must be an 8-bit non-interlaced RGBA PNG"
+                "transparent runtime art must be an 8-bit non-interlaced RGBA PNG"
             )
         rows = decode_rgba_scanlines(bytes(compressed), *dimensions)
         alpha_values = [alpha for row in rows for alpha in row[3::4]]
         if not any(alpha == 0 for alpha in alpha_values):
-            raise ValueError("runtime enemy has no transparent background")
+            raise ValueError("runtime art has no transparent background")
         if not any(alpha == 255 for alpha in alpha_values):
-            raise ValueError("runtime enemy has no fully opaque artwork")
+            raise ValueError("runtime art has no fully opaque artwork")
     if path in EXPECTED_ANIMATION_SHEETS:
         expected_dimensions = EXPECTED_ANIMATION_SHEETS[path]
         if dimensions != expected_dimensions:
