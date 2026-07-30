@@ -82,7 +82,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
-color = Color(0.008, 0.012, 0.025, 1)
+color = Color(0.008, 0.012, 0.025, 0)
 
 [node name="Presentation" type="CanvasLayer" parent="."]
 layer = 2

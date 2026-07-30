@@ -340,7 +340,18 @@ func _travel_to_location(location: Node2D) -> void:
 	enter_interior.tween_interval(0.35)
 	enter_interior.tween_property(curtain, "color:a", 1.0, 0.55)
 	await enter_interior.finished
-	get_tree().change_scene_to_file("res://scenes/combat.tscn")
+	var change_error := get_tree().change_scene_to_file(
+		"res://scenes/combat_loader.tscn"
+	)
+	if change_error != OK:
+		push_error("No se pudo abrir el cargador de combate: %d" % change_error)
+		journey_label.text = "NO SE PUDO ENTRAR EN LA TABERNA"
+		var recover := create_tween()
+		recover.tween_property(curtain, "color:a", 0.0, 0.35)
+		await recover.finished
+		character_moving = false
+		map_navigation_enabled = true
+		_enable_first_destination_choice()
 
 func _play_character_transition(animation_name: StringName) -> void:
 	character_sprite.play(animation_name)

@@ -52,35 +52,35 @@ const ENEMY_DEFINITIONS := [
 	},
 ]
 
-const INTERIOR_BACKGROUNDS: Array[Texture2D] = [
-	preload("res://assets/backgrounds/combat/bar_interior_01.png"),
-	preload("res://assets/backgrounds/combat/bar_interior_02.png"),
-	preload("res://assets/backgrounds/combat/bar_interior_03.png"),
+const INTERIOR_BACKGROUND_PATHS: Array[String] = [
+	"res://assets/backgrounds/combat/bar_interior_01.png",
+	"res://assets/backgrounds/combat/bar_interior_02.png",
+	"res://assets/backgrounds/combat/bar_interior_03.png",
 ]
-const CHARACTER_SHEETS := {
-	&"juan": preload("res://assets/characters/combat/juan_combat_idle.png"),
-	&"michu": preload("res://assets/characters/combat/michu_combat_idle.png"),
+const CHARACTER_SHEET_PATHS := {
+	&"juan": "res://assets/characters/combat/juan_combat_idle.png",
+	&"michu": "res://assets/characters/combat/michu_combat_idle.png",
 }
-const PORTRAIT_SHEETS := {
-	&"juan": preload("res://assets/characters/juan_idle.png"),
-	&"michu": preload("res://assets/characters/michu_idle.png"),
+const PORTRAIT_SHEET_PATHS := {
+	&"juan": "res://assets/characters/juan_idle.png",
+	&"michu": "res://assets/characters/michu_idle.png",
 }
-const CARD_TEXTURES := {
-	&"guantazo": preload("res://assets/cards/juan/guantazo.png"),
-	&"juan_guardia": preload("res://assets/cards/juan/guardia.png"),
-	&"tiriviento": preload("res://assets/cards/juan/tiriviento.png"),
-	&"fresquita": preload("res://assets/cards/juan/fresquita.png"),
-	&"siempre_sale_bien": preload("res://assets/cards/juan/siempre_sale_bien.png"),
-	&"el_oculto": preload("res://assets/cards/juan/el_oculto.png"),
-	&"mojadita": preload("res://assets/cards/michu/mojadita.png"),
-	&"michu_guardia": preload("res://assets/cards/michu/guardia.png"),
-	&"bocanegra": preload("res://assets/cards/michu/bocanegra.png"),
-	&"petardo": preload("res://assets/cards/michu/petardo.png"),
-	&"trilita": preload("res://assets/cards/michu/trilita.png"),
-	&"choriza_de_jabali": preload("res://assets/cards/michu/choriza.png"),
-	&"katana_escondida": preload("res://assets/cards/neutral/katana.png"),
-	&"el_camino_te_camela": preload("res://assets/cards/neutral/camino.png"),
-	&"la_variz": preload("res://assets/cards/neutral/variz.png"),
+const CARD_TEXTURE_PATHS := {
+	&"guantazo": "res://assets/cards/juan/guantazo.png",
+	&"juan_guardia": "res://assets/cards/juan/guardia.png",
+	&"tiriviento": "res://assets/cards/juan/tiriviento.png",
+	&"fresquita": "res://assets/cards/juan/fresquita.png",
+	&"siempre_sale_bien": "res://assets/cards/juan/siempre_sale_bien.png",
+	&"el_oculto": "res://assets/cards/juan/el_oculto.png",
+	&"mojadita": "res://assets/cards/michu/mojadita.png",
+	&"michu_guardia": "res://assets/cards/michu/guardia.png",
+	&"bocanegra": "res://assets/cards/michu/bocanegra.png",
+	&"petardo": "res://assets/cards/michu/petardo.png",
+	&"trilita": "res://assets/cards/michu/trilita.png",
+	&"choriza_de_jabali": "res://assets/cards/michu/choriza.png",
+	&"katana_escondida": "res://assets/cards/neutral/katana.png",
+	&"el_camino_te_camela": "res://assets/cards/neutral/camino.png",
+	&"la_variz": "res://assets/cards/neutral/variz.png",
 }
 const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
@@ -111,6 +111,7 @@ var player: CombatantState
 var deck: CombatDeck
 var enemies: Array[Dictionary] = []
 var card_buttons: Array[TextureButton] = []
+var card_texture_cache := {}
 var drag_card: TextureButton
 var drag_card_id: StringName
 var drag_origin := Vector2.ZERO
@@ -140,9 +141,9 @@ func _ready() -> void:
 	var interior_index := clampi(
 		GameState.selected_combat_interior,
 		0,
-		INTERIOR_BACKGROUNDS.size() - 1
+		INTERIOR_BACKGROUND_PATHS.size() - 1
 	)
-	background.texture = INTERIOR_BACKGROUNDS[interior_index]
+	background.texture = _load_texture(INTERIOR_BACKGROUND_PATHS[interior_index])
 	_prepare_character()
 	_prepare_combat_state()
 	_build_enemies()
@@ -201,6 +202,7 @@ func _build_enemies() -> void:
 
 func _build_runtime_ui() -> void:
 	var player_ui := Control.new()
+	player_ui.name = "PlayerHUD"
 	player_ui.position = PLAYER_UI_POSITION
 	player_ui.size = PLAYER_UI_SIZE
 	player_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -360,6 +362,7 @@ func _make_bar_clip(
 	size: Vector2
 ) -> Control:
 	var clip := Control.new()
+	clip.name = "BarClip"
 	clip.position = position
 	clip.size = size
 	clip.clip_contents = true
@@ -371,12 +374,31 @@ func _make_bar_clip(
 
 func _player_portrait_texture() -> AtlasTexture:
 	var character_id: StringName = GameState.selected_character
-	if not PORTRAIT_SHEETS.has(character_id):
+	if not PORTRAIT_SHEET_PATHS.has(character_id):
 		character_id = &"michu"
 	var portrait := AtlasTexture.new()
-	portrait.atlas = PORTRAIT_SHEETS[character_id]
+	portrait.atlas = _load_texture(PORTRAIT_SHEET_PATHS[character_id])
 	portrait.region = PORTRAIT_REGION
 	return portrait
+
+
+func _load_texture(resource_path: String) -> Texture2D:
+	var texture := load(resource_path) as Texture2D
+	if texture == null:
+		push_error("No se pudo cargar la textura: %s" % resource_path)
+	return texture
+
+
+func _card_texture(card_id: StringName) -> Texture2D:
+	if card_texture_cache.has(card_id):
+		return card_texture_cache[card_id]
+	if not CARD_TEXTURE_PATHS.has(card_id):
+		push_error("La carta no tiene textura registrada: %s" % card_id)
+		return null
+	var texture := _load_texture(CARD_TEXTURE_PATHS[card_id])
+	if texture != null:
+		card_texture_cache[card_id] = texture
+	return texture
 
 
 func _make_label(position: Vector2, size: Vector2, font_size: int, color: Color) -> Label:
@@ -428,7 +450,7 @@ func _rebuild_hand() -> void:
 		var card_id: StringName = deck.hand[card_index]
 		var offset := card_index - center
 		var button := TextureButton.new()
-		button.texture_normal = CARD_TEXTURES[card_id]
+		button.texture_normal = _card_texture(card_id)
 		button.ignore_texture_size = true
 		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		button.clip_contents = false
@@ -837,9 +859,11 @@ func _add_return_button(text: String, position: Vector2) -> void:
 
 func _prepare_character() -> void:
 	var character_id: StringName = GameState.selected_character
-	if not CHARACTER_SHEETS.has(character_id):
+	if not CHARACTER_SHEET_PATHS.has(character_id):
 		character_id = &"michu"
-	var sheet: Texture2D = CHARACTER_SHEETS[character_id]
+	var sheet := _load_texture(CHARACTER_SHEET_PATHS[character_id])
+	if sheet == null:
+		return
 	character_sprite.sprite_frames = _build_idle_frames(sheet, character_id)
 	character_sprite.position = Vector2(0, -COMBAT_FRAME_SIZE.y / 2.0)
 	character_root.position = CHARACTER_POSITION

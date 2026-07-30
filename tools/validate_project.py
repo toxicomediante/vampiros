@@ -27,6 +27,11 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/hp_bar_fill.png"),
     Path("assets/ui/combat/def_bar_base.png"),
     Path("assets/ui/combat/def_bar_fill.png"),
+    Path("scenes/combat.tscn"),
+    Path("scenes/combat_loader.tscn"),
+    Path("scripts/combat.gd"),
+    Path("scripts/combat_loader.gd"),
+    Path("tools/combat_smoke_test.gd"),
     Path("art_source/.gdignore"),
 )
 RESOURCE_PATTERN = re.compile(r"res://[A-Za-z0-9_./@+\-]+")
@@ -97,6 +102,33 @@ def validate_asset_boundaries() -> None:
         fail("runtime audio is ignored by Git")
 
 
+def validate_combat_loading() -> None:
+    combat_script = Path("scripts/combat.gd").read_text(encoding="utf-8")
+    forbidden_preloads = (
+        'preload("res://assets/cards/',
+        'preload("res://assets/backgrounds/combat/',
+        'preload("res://assets/characters/combat/',
+        'preload("res://assets/characters/juan_idle.png',
+        'preload("res://assets/characters/michu_idle.png',
+    )
+    found = [token for token in forbidden_preloads if token in combat_script]
+    if found:
+        fail(
+            "combat preloads high-resolution optional textures: "
+            + ", ".join(found)
+        )
+
+    overworld_script = Path("scripts/overworld.gd").read_text(encoding="utf-8")
+    if 'change_scene_to_file("res://scenes/combat.tscn")' in overworld_script:
+        fail("overworld bypasses the low-memory combat loader")
+    if "res://scenes/combat_loader.tscn" not in overworld_script:
+        fail("overworld does not route combat through the loader scene")
+
+    combat_scene = Path("scenes/combat.tscn").read_text(encoding="utf-8")
+    if "color = Color(0.008, 0.012, 0.025, 0)" not in combat_scene:
+        fail("combat curtain is not fail-open before runtime initialization")
+
+
 def validate_export_settings() -> None:
     text = Path("export_presets.cfg").read_text(encoding="utf-8")
     if "encrypt_pck=true" in text or "encrypt_directory=true" in text:
@@ -109,6 +141,8 @@ def validate_export_settings() -> None:
         fail("encryption include filters must be empty in both presets")
     if text.count('encryption_exclude_filters=""') != 2:
         fail("encryption exclude filters must be empty in both presets")
+    if text.count('exclude_filter="tools/*"') != 2:
+        fail("development-only tools must stay out of both exported builds")
 
 
 def validate_workflows() -> None:
@@ -184,6 +218,7 @@ def main() -> None:
         validate_required_files()
         validate_resource_paths()
         validate_asset_boundaries()
+        validate_combat_loading()
         validate_export_settings()
         validate_workflows()
         validate_repository_portability()

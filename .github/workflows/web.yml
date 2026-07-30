@@ -43,6 +43,26 @@ jobs:
             | tee godot-import.log
           python3 tools/validate_project.py --godot-log godot-import.log
 
+      - name: Run scenes in Godot
+        shell: bash
+        run: |
+          set -o pipefail
+          : > godot-runtime.log
+          for scene in main overworld combat_loader; do
+            timeout 2m godot --headless --path . \
+              --scene "res://scenes/${scene}.tscn" \
+              --fixed-fps 60 \
+              --quit-after 180 2>&1 \
+              | tee -a godot-runtime.log
+          done
+          timeout 2m godot --headless --path . \
+            --script tools/combat_smoke_test.gd \
+            --fixed-fps 60 2>&1 \
+            | tee -a godot-runtime.log
+          python3 tools/validate_project.py \
+            --godot-log godot-import.log \
+            --godot-log godot-runtime.log
+
       - name: Export Web
         shell: bash
         run: |
