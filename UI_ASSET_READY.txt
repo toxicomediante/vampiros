@@ -1,1 +1,0 @@
-Approved UI binary blob prepared for integration.

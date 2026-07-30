@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android APK (manual)
 
 on:
   workflow_dispatch:
@@ -19,6 +19,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate committed project
+        run: python3 tools/validate_project.py
+
       - name: Configure Java
         uses: actions/setup-java@v4
         with:
@@ -32,7 +35,10 @@ jobs:
         shell: bash
         run: |
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Configure Godot
         uses: chickensoft-games/setup-godot@v2
@@ -46,7 +52,15 @@ jobs:
         run: |
           mkdir -p "$HOME/.android"
           if [ ! -f "$HOME/.android/debug.keystore" ]; then
-            keytool -genkeypair -v               -keystore "$HOME/.android/debug.keystore"               -storepass android               -alias androiddebugkey               -keypass android               -keyalg RSA               -keysize 2048               -validity 10000               -dname "CN=Android Debug,O=Android,C=US"
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
           fi
 
       - name: Configure Godot Android paths
@@ -61,36 +75,32 @@ jobs:
           export/android/java_sdk_path = "$JAVA_HOME"
           EOF
 
-      - name: Show tool versions
+      - name: Import in Godot
         shell: bash
         run: |
-          godot --version
-          java -version
-          sdkmanager --version
-
-      - name: Generate original background music
-        shell: bash
-        run: |
-          python3 tools/generate_night_drive.py
-          test -s assets/audio/neon_blood_drive.wav
-
-      - name: Import project
-        run: godot --headless --editor --path . --import --quit
-
-      - name: Validate project
-        run: godot --headless --editor --path . --quit-after 2
+          set -o pipefail
+          timeout 5m godot --headless --editor --path . --import --quit 2>&1 \
+            | tee godot-import.log
+          python3 tools/validate_project.py --godot-log godot-import.log
 
       - name: Export APK
         shell: bash
         run: |
+          set -o pipefail
           mkdir -p build
-          godot --headless --path . --export-debug "Android Debug" build/vampiros-debug.apk
+          timeout 15m godot --headless --path . \
+            --export-debug "Android Debug" build/vampiros-debug.apk 2>&1 \
+            | tee godot-export.log
+          python3 tools/validate_project.py \
+            --godot-log godot-import.log \
+            --godot-log godot-export.log
 
       - name: Verify APK
         shell: bash
         run: |
           test -s build/vampiros-debug.apk
-          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" dump badging build/vampiros-debug.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" \
+            dump badging build/vampiros-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

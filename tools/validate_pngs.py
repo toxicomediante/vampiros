@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail CI when a tracked PNG has corrupt chunks or image data."""
+"""Fail when a project PNG has corrupt chunks, data, or locked sheet geometry."""
 
 from pathlib import Path
 import struct
@@ -11,6 +11,11 @@ EXPECTED_ANIMATION_SHEETS = {
     Path("assets/characters/overworld/michu_overworld_animations.png"): (576, 512),
     Path("assets/characters/combat/juan_combat_idle.png"): (2172, 644),
     Path("assets/characters/combat/michu_combat_idle.png"): (2172, 644),
+}
+
+REQUIRED_TRANSPARENT_ASSETS = {
+    Path("assets/enemies/tarantula.png"),
+    Path("assets/enemies/vampiro_malleiro.png"),
 }
 
 LOCKED_COMBAT_IDLE_REGIONS = {
@@ -198,11 +203,26 @@ def validate(path: Path) -> None:
     if not saw_end:
         raise ValueError("missing IEND chunk")
     zlib.decompress(compressed)
-    if color_type not in (3, 6):
+    if color_type not in (0, 2, 3, 4, 6):
         raise ValueError(
-            "unsupported asset encoding: expected indexed or RGBA PNG "
-            f"(type 3 or 6), got type {color_type}"
+            "unsupported PNG color type: "
+            f"expected grayscale, RGB, indexed, grayscale-alpha, or RGBA; got {color_type}"
         )
+    if dimensions is None or dimensions[0] <= 0 or dimensions[1] <= 0:
+        raise ValueError("invalid or missing PNG dimensions")
+    if bit_depth not in (1, 2, 4, 8, 16):
+        raise ValueError(f"unsupported PNG bit depth {bit_depth}")
+    if path in REQUIRED_TRANSPARENT_ASSETS:
+        if color_type != 6 or bit_depth != 8 or interlace_method != 0:
+            raise ValueError(
+                "runtime enemy must be an 8-bit non-interlaced RGBA PNG"
+            )
+        rows = decode_rgba_scanlines(bytes(compressed), *dimensions)
+        alpha_values = [alpha for row in rows for alpha in row[3::4]]
+        if not any(alpha == 0 for alpha in alpha_values):
+            raise ValueError("runtime enemy has no transparent background")
+        if not any(alpha == 255 for alpha in alpha_values):
+            raise ValueError("runtime enemy has no fully opaque artwork")
     if path in EXPECTED_ANIMATION_SHEETS:
         expected_dimensions = EXPECTED_ANIMATION_SHEETS[path]
         if dimensions != expected_dimensions:
@@ -231,19 +251,25 @@ def validate(path: Path) -> None:
 
 
 def main() -> None:
-    pngs = sorted(Path("assets").rglob("*.png"))
+    pngs = sorted(
+        path
+        for root in (Path("assets"), Path("art_source"))
+        for path in root.rglob("*.png")
+    )
     if not pngs:
         raise SystemExit("No PNG assets found")
     failed = False
+    validated = 0
     for path in pngs:
         try:
             validate(path)
-            print(f"OK {path}")
+            validated += 1
         except (OSError, ValueError, zlib.error) as exc:
             failed = True
             print(f"CORRUPT {path}: {exc}")
     if failed:
         raise SystemExit(1)
+    print(f"PNGS OK: {validated} files")
 
 
 if __name__ == "__main__":

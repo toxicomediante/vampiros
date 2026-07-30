@@ -27,8 +27,7 @@ var sound_enabled := true
 
 func _ready() -> void:
 	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
-	if background_music.stream is AudioStreamWAV:
-		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_configure_music_loop()
 	if not background_music.playing:
 		background_music.play()
 	michu_sprite.sprite_frames = _build_idle_frames(MICHU_SHEET, 6)
@@ -43,6 +42,15 @@ func _ready() -> void:
 	start_button.disabled = true
 	_refresh_control_icons()
 	_play_intro()
+
+func _configure_music_loop() -> void:
+	var ogg_stream := background_music.stream as AudioStreamOggVorbis
+	if ogg_stream != null:
+		ogg_stream.loop = true
+		return
+	var wav_stream := background_music.stream as AudioStreamWAV
+	if wav_stream != null:
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 
 func _build_idle_frames(sheet: Texture2D, frame_count: int) -> SpriteFrames:
 	assert(sheet.get_width() % frame_count == 0, "La hoja debe contener celdas de igual anchura")

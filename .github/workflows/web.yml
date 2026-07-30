@@ -1,4 +1,4 @@
-name: Deploy Web
+name: Validate and deploy Web
 
 on:
   workflow_dispatch:
@@ -14,30 +14,58 @@ concurrency:
   group: github-pages
   cancel-in-progress: true
 
+env:
+  GODOT_VERSION: 4.7.1
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/configure-pages@v5
+      - name: Validate committed project
+        run: python3 tools/validate_project.py
 
-      - uses: chickensoft-games/setup-godot@v2
+      - name: Configure Godot
+        uses: chickensoft-games/setup-godot@v2
         with:
-          version: 4.7.1
+          version: ${{ env.GODOT_VERSION }}
           use-dotnet: false
           include-templates: true
 
-      - name: Import project
-        run: godot --headless --editor --path . --import --quit
+      - name: Import in Godot
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 5m godot --headless --editor --path . --import --quit 2>&1 \
+            | tee godot-import.log
+          python3 tools/validate_project.py --godot-log godot-import.log
 
       - name: Export Web
+        shell: bash
         run: |
+          set -o pipefail
           mkdir -p build/web
-          godot --headless --path . --export-release "Web" build/web/index.html
+          timeout 10m godot --headless --path . \
+            --export-release "Web" build/web/index.html 2>&1 \
+            | tee godot-export.log
+          python3 tools/validate_project.py \
+            --godot-log godot-import.log \
+            --godot-log godot-export.log
+          test -s build/web/index.html
+          test -s build/web/index.pck
+          test -s build/web/index.wasm
+          cp assets/social/vampiros_social_preview_v2.png \
+            build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll
 
-      - uses: actions/upload-pages-artifact@v3
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
 

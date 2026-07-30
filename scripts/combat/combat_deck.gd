@@ -41,7 +41,7 @@ func draw(amount: int) -> Array[StringName]:
 			_reshuffle_discards()
 		if draw_pile.is_empty():
 			break
-		var card_id := draw_pile.pop_back()
+		var card_id: StringName = draw_pile.pop_back()
 		hand.append(card_id)
 		drawn.append(card_id)
 	return drawn

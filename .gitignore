@@ -1,2 +1,12 @@
-assets/audio/neon_blood_drive.wav
-assets/audio/neon_blood_drive.ogg
+# Godot recreates these files locally. Runtime assets themselves are tracked.
+.godot/
+*.import
+
+# Exported builds are reproducible and are published by GitHub Actions.
+build/
+__pycache__/
+*.pyc
+
+# Local operating-system/editor leftovers.
+.DS_Store
+Thumbs.db

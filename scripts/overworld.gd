@@ -75,8 +75,7 @@ func _ready() -> void:
 	randomize()
 	_prepare_location_glows()
 	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
-	if background_music.stream is AudioStreamWAV:
-		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_configure_music_loop()
 	fullscreen_button.pressed.connect(_toggle_fullscreen)
 	sound_button.pressed.connect(_toggle_sound)
 	_refresh_control_icons()
@@ -86,6 +85,15 @@ func _ready() -> void:
 	_generate_route()
 	_prepare_character()
 	_play_map_intro()
+
+func _configure_music_loop() -> void:
+	var ogg_stream := background_music.stream as AudioStreamOggVorbis
+	if ogg_stream != null:
+		ogg_stream.loop = true
+		return
+	var wav_stream := background_music.stream as AudioStreamWAV
+	if wav_stream != null:
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not map_navigation_enabled:

@@ -11,9 +11,13 @@ const HAND_SIZE := 5
 const ENERGY_FRAME_SIZE := Vector2i(384, 560)
 const ENERGY_FRAME_Y := 220
 const CARD_SIZE := Vector2(210, 315)
-const CARD_GAP := -58.0
-const CARD_Y := 735.0
+const CARD_GAP := -78.0
+const CARD_Y := 748.0
+const CARD_FAN_ROTATION := 6.0
+const CARD_FAN_LIFT := 17.0
 const PLAY_LINE_Y := 700.0
+const PLAYER_BAR_WIDTH := 286.0
+const MAX_BLOCK_DISPLAY := 20.0
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -41,9 +45,9 @@ const ENEMY_DEFINITIONS := [
 ]
 
 const INTERIOR_BACKGROUNDS: Array[Texture2D] = [
-	preload("res://assets/concepts/combat/v1/bar_interior_01_v1.png"),
-	preload("res://assets/concepts/combat/v1/bar_interior_02_v1.png"),
-	preload("res://assets/concepts/combat/v1/bar_interior_03_v1.png"),
+	preload("res://assets/backgrounds/combat/bar_interior_01.png"),
+	preload("res://assets/backgrounds/combat/bar_interior_02.png"),
+	preload("res://assets/backgrounds/combat/bar_interior_03.png"),
 ]
 const CHARACTER_SHEETS := {
 	&"juan": preload("res://assets/characters/combat/juan_combat_idle.png"),
@@ -94,21 +98,28 @@ var card_buttons: Array[TextureButton] = []
 var drag_card: TextureButton
 var drag_card_id: StringName
 var drag_origin := Vector2.ZERO
+var drag_origin_rotation := 0.0
+var drag_pointer_position := Vector2.ZERO
 var discard_window_open := true
+var discard_mode := false
 var combat_finished := false
 
 var player_hp_label: Label
 var player_block_label: Label
+var player_hp_fill: ColorRect
+var player_block_fill: ColorRect
 var player_status_label: Label
 var deck_label: Label
 var hint_label: Label
+var discard_button: Button
 var turn_button: Button
 
 
 func _ready() -> void:
 	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
-	if background_music.stream is AudioStreamWAV:
-		background_music.stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	_configure_music_loop()
+	if not background_music.playing:
+		background_music.play()
 
 	var interior_index := clampi(
 		GameState.selected_combat_interior,
@@ -126,6 +137,16 @@ func _ready() -> void:
 	sound_button.pressed.connect(_toggle_sound)
 	_refresh_control_icons()
 	_play_scene_intro()
+
+
+func _configure_music_loop() -> void:
+	var ogg_stream := background_music.stream as AudioStreamOggVorbis
+	if ogg_stream != null:
+		ogg_stream.loop = true
+		return
+	var wav_stream := background_music.stream as AudioStreamWAV
+	if wav_stream != null:
+		wav_stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 
 
 func _prepare_combat_state() -> void:
@@ -165,22 +186,39 @@ func _build_enemies() -> void:
 func _build_runtime_ui() -> void:
 	var player_frame := TextureRect.new()
 	player_frame.texture = HP_DEF_FRAME_TEXTURE
-	player_frame.position = Vector2(34, 150)
+	player_frame.position = Vector2(34, 140)
 	player_frame.size = Vector2(430, 242)
 	player_frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	player_frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	player_frame.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	player_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interface.add_child(player_frame)
 
+	player_hp_fill = ColorRect.new()
+	player_hp_fill.position = Vector2(157, 164)
+	player_hp_fill.size = Vector2(PLAYER_BAR_WIDTH, 76)
+	player_hp_fill.color = Color(0.72, 0.035, 0.055, 0.9)
+	player_hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_hp_fill)
+
+	player_block_fill = ColorRect.new()
+	player_block_fill.position = Vector2(157, 264)
+	player_block_fill.size = Vector2(0, 76)
+	player_block_fill.color = Color(0.08, 0.34, 0.62, 0.9)
+	player_block_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_block_fill)
+
 	player_hp_label = _make_label(
-		Vector2(155, 244), Vector2(265, 34), 20, Color(1.0, 0.9, 0.79)
+		Vector2(157, 181), Vector2(286, 42), 18, Color(1.0, 0.92, 0.82)
 	)
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	interface.add_child(player_hp_label)
 	player_block_label = _make_label(
-		Vector2(155, 286), Vector2(265, 34), 19, Color(0.72, 0.88, 1.0)
+		Vector2(157, 281), Vector2(286, 42), 18, Color(0.78, 0.9, 1.0)
 	)
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	interface.add_child(player_block_label)
 	player_status_label = _make_label(
 		Vector2(48, 392), Vector2(430, 42), 13, Color(0.96, 0.82, 0.56)
@@ -228,6 +266,17 @@ func _build_runtime_ui() -> void:
 	)
 	interface.add_child(deck_label)
 
+	discard_button = Button.new()
+	discard_button.text = "DESCARTAR CARTA"
+	discard_button.position = Vector2(1590, 848)
+	discard_button.size = Vector2(290, 70)
+	discard_button.toggle_mode = true
+	discard_button.add_theme_font_size_override("font_size", 18)
+	discard_button.add_theme_color_override("font_color", Color(0.9, 0.72, 0.55))
+	discard_button.add_theme_color_override("font_pressed_color", Color.WHITE)
+	discard_button.toggled.connect(_toggle_discard_mode)
+	interface.add_child(discard_button)
+
 	turn_button = Button.new()
 	turn_button.text = "FIN DE TURNO"
 	turn_button.position = Vector2(1590, 938)
@@ -260,6 +309,9 @@ func _begin_player_turn(first_turn := false) -> void:
 	player.begin_turn()
 	deck.begin_turn()
 	discard_window_open = true
+	discard_mode = false
+	discard_button.button_pressed = false
+	discard_button.disabled = false
 	deck.draw(maxi(0, HAND_SIZE - deck.hand.size()))
 	set_energy(deck.energy)
 	_rebuild_hand()
@@ -277,18 +329,29 @@ func _rebuild_hand() -> void:
 			button.queue_free()
 	card_buttons.clear()
 
-	var hand_width := deck.hand.size() * CARD_SIZE.x + maxi(0, deck.hand.size() - 1) * CARD_GAP
-	var start_x := (1920.0 - hand_width) / 2.0
-	for card_index in deck.hand.size():
+	var count: int = deck.hand.size()
+	if count == 0:
+		return
+	var step := CARD_SIZE.x + CARD_GAP
+	var center := (count - 1) / 2.0
+	var start_x := 960.0 - CARD_SIZE.x / 2.0 - center * step
+	for card_index in count:
 		var card_id: StringName = deck.hand[card_index]
+		var offset := card_index - center
 		var button := TextureButton.new()
 		button.texture_normal = CARD_TEXTURES[card_id]
 		button.ignore_texture_size = true
 		button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 		button.clip_contents = false
 		button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		button.position = Vector2(start_x + card_index * (CARD_SIZE.x + CARD_GAP), CARD_Y)
 		button.size = CARD_SIZE
+		button.pivot_offset = CARD_SIZE / 2.0
+		button.position = Vector2(
+			start_x + card_index * step,
+			CARD_Y + absf(offset) * CARD_FAN_LIFT
+		)
+		button.rotation = deg_to_rad(offset * CARD_FAN_ROTATION)
+		button.z_index = card_index
 		button.tooltip_text = "%s · Coste %d" % [
 			CardCatalog.CARDS[card_id]["name"],
 			CardCatalog.CARDS[card_id]["cost"],
@@ -299,37 +362,87 @@ func _rebuild_hand() -> void:
 		card_buttons.append(button)
 
 
+func _start_card_drag(
+	button: TextureButton,
+	card_id: StringName,
+	pointer: Vector2
+) -> void:
+	drag_card = button
+	drag_card_id = card_id
+	drag_origin = button.position
+	drag_origin_rotation = button.rotation
+	drag_pointer_position = pointer
+	button.rotation = 0.0
+	button.z_index = 100
+	button.modulate = Color(1.08, 1.08, 1.08)
+
+
+func _move_card_drag(pointer: Vector2) -> void:
+	if not is_instance_valid(drag_card):
+		return
+	drag_card.position += pointer - drag_pointer_position
+	drag_pointer_position = pointer
+	_refresh_enemy_highlight(pointer)
+
+
+func _discard_card(card_id: StringName) -> void:
+	if not discard_window_open or not deck.discard(card_id):
+		return
+	hint_label.text = "%s DESCARTADA · CONSERVA O DESCARTA OTRA" % (
+		CardCatalog.CARDS[card_id]["name"]
+	)
+	_rebuild_hand()
+	_refresh_all_ui()
+
+
+func _toggle_discard_mode(enabled: bool) -> void:
+	discard_mode = enabled and discard_window_open
+	if discard_mode:
+		hint_label.text = "TOCA UNA CARTA PARA DESCARTARLA"
+	else:
+		hint_label.text = "ARRASTRA UNA CARTA PARA JUGAR"
+
+
 func _on_card_input(event: InputEvent, button: TextureButton) -> void:
 	if combat_finished:
 		return
 	var card_id: StringName = button.get_meta("card_id")
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
-			if discard_window_open and deck.discard(card_id):
-				hint_label.text = "%s DESCARTADA · ROBARÁS HASTA 5 EL PRÓXIMO TURNO" % (
-					CardCatalog.CARDS[card_id]["name"]
-				)
-				_rebuild_hand()
-				_refresh_all_ui()
+			_discard_card(card_id)
+			button.accept_event()
 			return
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				drag_card = button
-				drag_card_id = card_id
-				drag_origin = button.position
-				button.z_index = 50
-				button.modulate = Color(1.08, 1.08, 1.08)
+				if discard_mode:
+					_discard_card(card_id)
+					button.accept_event()
+					return
+				_start_card_drag(button, card_id, get_viewport().get_mouse_position())
 			elif drag_card == button:
-				_finish_card_drag()
-	if event is InputEventMouseMotion and drag_card == button:
-		button.position += event.relative
-		_refresh_enemy_highlight(get_viewport().get_mouse_position())
+				_finish_card_drag(get_viewport().get_mouse_position())
+			button.accept_event()
+	elif event is InputEventMouseMotion and drag_card == button:
+		_move_card_drag(get_viewport().get_mouse_position())
+		button.accept_event()
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			if discard_mode:
+				_discard_card(card_id)
+				button.accept_event()
+				return
+			_start_card_drag(button, card_id, event.position)
+		elif drag_card == button:
+			_finish_card_drag(event.position)
+		button.accept_event()
+	elif event is InputEventScreenDrag and drag_card == button:
+		_move_card_drag(event.position)
+		button.accept_event()
 
 
-func _finish_card_drag() -> void:
+func _finish_card_drag(drop_position: Vector2) -> void:
 	if not is_instance_valid(drag_card):
 		return
-	var drop_position := get_viewport().get_mouse_position()
 	var card_data: Dictionary = CardCatalog.CARDS[drag_card_id]
 	var target_index := _enemy_at(drop_position)
 	var valid_drop := false
@@ -345,7 +458,8 @@ func _finish_card_drag() -> void:
 		return
 
 	drag_card.position = drag_origin
-	drag_card.z_index = 0
+	drag_card.rotation = drag_origin_rotation
+	drag_card.z_index = card_buttons.find(drag_card)
 	drag_card.modulate = Color.WHITE
 	drag_card = null
 	drag_card_id = &""
@@ -364,6 +478,9 @@ func _try_play_card(card_id: StringName, target_index: int) -> bool:
 	deck.pay(cost)
 	set_energy(deck.energy)
 	discard_window_open = false
+	discard_mode = false
+	discard_button.button_pressed = false
+	discard_button.disabled = true
 	_resolve_card(card_data, target_index)
 	deck.discard(card_id)
 	hint_label.text = "%s JUGADA" % card_data["name"]
@@ -504,6 +621,14 @@ func _all_enemies_dead() -> bool:
 func _refresh_all_ui() -> void:
 	player_hp_label.text = "HP  %d / %d" % [player.hp, player.max_hp]
 	player_block_label.text = "DEF  %d" % player.block
+	player_hp_fill.size.x = (
+		PLAYER_BAR_WIDTH
+		* clampf(float(player.hp) / float(player.max_hp), 0.0, 1.0)
+	)
+	player_block_fill.size.x = (
+		PLAYER_BAR_WIDTH
+		* clampf(float(player.block) / MAX_BLOCK_DISPLAY, 0.0, 1.0)
+	)
 	player_status_label.text = _status_text(player)
 	deck_label.text = "MAZO %d   DESCARTE %d   MANO %d" % [
 		deck.draw_pile.size(),
