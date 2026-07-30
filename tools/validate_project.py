@@ -27,12 +27,16 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/hp_bar_fill.png"),
     Path("assets/ui/combat/def_bar_base.png"),
     Path("assets/ui/combat/def_bar_fill.png"),
+    Path("assets/ui/combat/portraits/juan.png"),
+    Path("assets/ui/combat/portraits/michu.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
     Path("scripts/combat.gd"),
     Path("scripts/combat_loader.gd"),
     Path("tools/combat_smoke_test.gd"),
+    Path("tools/scene_lifecycle_test.gd"),
     Path("art_source/.gdignore"),
+    Path("art_source/runtime_sources/README.md"),
 )
 RESOURCE_PATTERN = re.compile(r"res://[A-Za-z0-9_./@+\-]+")
 SOURCE_FILES = (
@@ -93,6 +97,27 @@ def validate_asset_boundaries() -> None:
     if len(source_originals) != 16:
         fail(f"expected 16 supplied source images, found {len(source_originals)}")
 
+    source_ready_runtime_paths = {
+        *Path("assets/cards").rglob("*.png"),
+        *Path("assets/enemies").rglob("*.png"),
+        *(
+            path
+            for path in Path("assets/ui/combat").glob("*.png")
+            if path.parent == Path("assets/ui/combat")
+        ),
+    }
+    preserved_source_paths = {
+        path.relative_to(Path("art_source/runtime_sources"))
+        for path in Path("art_source/runtime_sources/assets").rglob("*.png")
+    }
+    if preserved_source_paths != source_ready_runtime_paths:
+        missing = sorted(source_ready_runtime_paths - preserved_source_paths)
+        unexpected = sorted(preserved_source_paths - source_ready_runtime_paths)
+        fail(
+            "full-resolution runtime sources do not mirror optimized assets: "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
     ignored = subprocess.run(
         ["git", "check-ignore", "--quiet", "assets/audio/neon_blood_drive.ogg"],
         cwd=ROOT,
@@ -118,7 +143,37 @@ def validate_combat_loading() -> None:
             + ", ".join(found)
         )
 
+    character_select_script = Path("scripts/character_select.gd").read_text(
+        encoding="utf-8"
+    )
+    forbidden_character_preloads = (
+        'preload("res://assets/characters/juan_idle.png',
+        'preload("res://assets/characters/michu_idle.png',
+    )
+    found = [
+        token
+        for token in forbidden_character_preloads
+        if token in character_select_script
+    ]
+    if found:
+        fail(
+            "character selection retains full character sheets between scenes: "
+            + ", ".join(found)
+        )
+
     overworld_script = Path("scripts/overworld.gd").read_text(encoding="utf-8")
+    forbidden_overworld_preloads = (
+        'preload("res://assets/overworld/',
+        'preload("res://assets/characters/overworld/',
+    )
+    found = [
+        token for token in forbidden_overworld_preloads if token in overworld_script
+    ]
+    if found:
+        fail(
+            "overworld retains high-resolution textures during combat: "
+            + ", ".join(found)
+        )
     if 'change_scene_to_file("res://scenes/combat.tscn")' in overworld_script:
         fail("overworld bypasses the low-memory combat loader")
     if "res://scenes/combat_loader.tscn" not in overworld_script:
@@ -164,6 +219,12 @@ def validate_workflows() -> None:
     found = [token for token in forbidden if token in combined]
     if found:
         fail("workflows still mutate or generate project files: " + ", ".join(found))
+
+    web = Path(".github/workflows/web.yml").read_text(encoding="utf-8")
+    if "MAX_WEB_PCK_BYTES" not in web or "pck_bytes" not in web:
+        fail("Web workflow does not enforce the mobile package budget")
+    if "scene_lifecycle_test.gd" not in web:
+        fail("Web workflow does not test that earlier scenes release their textures")
 
     android = Path(".github/workflows/android.yml").read_text(encoding="utf-8")
     android_on = android.split("permissions:", 1)[0]

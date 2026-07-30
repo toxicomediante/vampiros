@@ -16,6 +16,7 @@ concurrency:
 
 env:
   GODOT_VERSION: 4.7.1
+  MAX_WEB_PCK_BYTES: 36700160
 
 jobs:
   build:
@@ -59,6 +60,10 @@ jobs:
             --script tools/combat_smoke_test.gd \
             --fixed-fps 60 2>&1 \
             | tee -a godot-runtime.log
+          timeout 2m godot --headless --path . \
+            --script tools/scene_lifecycle_test.gd \
+            --fixed-fps 60 2>&1 \
+            | tee -a godot-runtime.log
           python3 tools/validate_project.py \
             --godot-log godot-import.log \
             --godot-log godot-runtime.log
@@ -77,6 +82,11 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.pck
           test -s build/web/index.wasm
+          pck_bytes=$(stat --format=%s build/web/index.pck)
+          if (( pck_bytes > MAX_WEB_PCK_BYTES )); then
+            echo "Web PCK demasiado grande para móviles: ${pck_bytes} bytes"
+            exit 1
+          fi
           cp assets/social/vampiros_social_preview_v2.png \
             build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll

@@ -13,6 +13,19 @@ EXPECTED_ANIMATION_SHEETS = {
     Path("assets/characters/combat/michu_combat_idle.png"): (2172, 644),
 }
 
+EXPECTED_RUNTIME_TEXTURES = {
+    Path("assets/enemies/tarantula.png"): (724, 543),
+    Path("assets/enemies/vampiro_malleiro.png"): (543, 724),
+    Path("assets/ui/combat/energy_states.png"): (1024, 373),
+    Path("assets/ui/combat/hp_def_frame.png"): (767, 210),
+    Path("assets/ui/combat/hp_bar_base.png"): (453, 41),
+    Path("assets/ui/combat/hp_bar_fill.png"): (453, 41),
+    Path("assets/ui/combat/def_bar_base.png"): (453, 34),
+    Path("assets/ui/combat/def_bar_fill.png"): (453, 34),
+    Path("assets/ui/combat/portraits/juan.png"): (96, 96),
+    Path("assets/ui/combat/portraits/michu.png"): (96, 96),
+}
+
 REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
@@ -21,6 +34,8 @@ REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/ui/combat/hp_bar_fill.png"),
     Path("assets/ui/combat/def_bar_base.png"),
     Path("assets/ui/combat/def_bar_fill.png"),
+    Path("assets/ui/combat/portraits/juan.png"),
+    Path("assets/ui/combat/portraits/michu.png"),
     *Path("assets/cards").rglob("*.png"),
 }
 
@@ -218,6 +233,17 @@ def validate(path: Path) -> None:
         raise ValueError("invalid or missing PNG dimensions")
     if bit_depth not in (1, 2, 4, 8, 16):
         raise ValueError(f"unsupported PNG bit depth {bit_depth}")
+    expected_runtime_dimensions = EXPECTED_RUNTIME_TEXTURES.get(path)
+    if path.parts[:2] == ("assets", "cards"):
+        expected_runtime_dimensions = (512, 768)
+    if (
+        expected_runtime_dimensions is not None
+        and dimensions != expected_runtime_dimensions
+    ):
+        raise ValueError(
+            "runtime texture exceeds its mobile-safe geometry: "
+            f"expected {expected_runtime_dimensions}, got {dimensions}"
+        )
     if path in REQUIRED_TRANSPARENT_ASSETS:
         if color_type != 6 or bit_depth != 8 or interlace_method != 0:
             raise ValueError(

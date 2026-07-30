@@ -2,6 +2,23 @@ extends SceneTree
 
 const COMBAT_SCENE_PATH := "res://scenes/combat.tscn"
 const CHARACTER_IDS := [&"michu", &"juan"]
+const CARD_TEXTURE_PATHS := [
+	"res://assets/cards/juan/guantazo.png",
+	"res://assets/cards/juan/guardia.png",
+	"res://assets/cards/juan/tiriviento.png",
+	"res://assets/cards/juan/fresquita.png",
+	"res://assets/cards/juan/siempre_sale_bien.png",
+	"res://assets/cards/juan/el_oculto.png",
+	"res://assets/cards/michu/mojadita.png",
+	"res://assets/cards/michu/guardia.png",
+	"res://assets/cards/michu/bocanegra.png",
+	"res://assets/cards/michu/petardo.png",
+	"res://assets/cards/michu/trilita.png",
+	"res://assets/cards/michu/choriza.png",
+	"res://assets/cards/neutral/katana.png",
+	"res://assets/cards/neutral/camino.png",
+	"res://assets/cards/neutral/variz.png",
+]
 
 var failed := false
 
@@ -23,6 +40,17 @@ func _run() -> void:
 		_finish()
 		return
 
+	for card_path: String in CARD_TEXTURE_PATHS:
+		var texture := load(card_path) as Texture2D
+		_expect(texture != null, "no se puede cargar %s" % card_path)
+		if texture != null:
+			_expect(
+				texture.get_size() == Vector2(512, 768),
+				"%s no tiene tamaño Web seguro" % card_path
+			)
+		texture = null
+		await process_frame
+
 	for character_id: StringName in CHARACTER_IDS:
 		game_state.select_character(character_id)
 		game_state.start_new_run()
@@ -39,6 +67,7 @@ func _run() -> void:
 		var energy := combat.get_node_or_null("Interface/EnergyCounter") as TextureRect
 		var card_buttons: Array = combat.get("card_buttons")
 		var card_cache: Dictionary = combat.get("card_texture_cache")
+		var enemies: Array = combat.get("enemies")
 
 		_expect(curtain != null, "%s no tiene telón" % character_id)
 		if curtain != null:
@@ -47,6 +76,11 @@ func _run() -> void:
 				"%s deja el telón negro visible" % character_id
 			)
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
+		if player_hud != null:
+			_expect(
+				_count_textured_rects(player_hud) >= 6,
+				"%s construye una UI HP/DEF sin todas sus texturas" % character_id
+			)
 		_expect(
 			background != null and background.texture != null,
 			"%s no carga el interior" % character_id
@@ -56,19 +90,49 @@ func _run() -> void:
 			"%s no carga el contador de energía" % character_id
 		)
 		_expect(
+			enemies.size() == 2,
+			"%s no carga los dos enemigos" % character_id
+		)
+		for enemy: Dictionary in enemies:
+			var sprite := enemy.get("sprite") as Sprite2D
+			_expect(
+				sprite != null and sprite.texture != null,
+				"%s construye un enemigo sin textura" % character_id
+			)
+		_expect(
 			card_buttons.size() == 5,
 			"%s no roba una mano inicial de 5 cartas" % character_id
 		)
+		for button: TextureButton in card_buttons:
+			_expect(
+				button.texture_normal != null,
+				"%s construye una carta visible sin textura" % character_id
+			)
 		_expect(
-			card_cache.size() <= 3,
+			not card_cache.is_empty() and card_cache.size() <= 3,
 			"%s carga cartas que no están en la mano" % character_id
 		)
+		for cached_texture: Texture2D in card_cache.values():
+			_expect(
+				cached_texture != null,
+				"%s conserva una carta inválida en caché" % character_id
+			)
 
 		current_scene = null
 		combat.queue_free()
-		await process_frame
+		for _frame in 5:
+			await process_frame
 
 	_finish()
+
+
+func _count_textured_rects(node: Node) -> int:
+	var count := 0
+	if node is TextureRect and (node as TextureRect).texture != null:
+		count += 1
+	for child: Node in node.get_children():
+		count += _count_textured_rects(child)
+	return count
 
 
 func _expect(condition: bool, message: String) -> void:

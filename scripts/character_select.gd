@@ -1,7 +1,7 @@
 extends Control
 
-const MICHU_SHEET := preload("res://assets/characters/michu_idle.png")
-const JUAN_SHEET := preload("res://assets/characters/juan_idle.png")
+const MICHU_SHEET_PATH := "res://assets/characters/michu_idle.png"
+const JUAN_SHEET_PATH := "res://assets/characters/juan_idle.png"
 const IDLE_FPS := 5.0
 
 @onready var logo: TextureRect = $Logo
@@ -30,8 +30,13 @@ func _ready() -> void:
 	_configure_music_loop()
 	if not background_music.playing:
 		background_music.play()
-	michu_sprite.sprite_frames = _build_idle_frames(MICHU_SHEET, 6)
-	juan_sprite.sprite_frames = _build_idle_frames(JUAN_SHEET, 6)
+	var michu_sheet := _load_texture(MICHU_SHEET_PATH)
+	var juan_sheet := _load_texture(JUAN_SHEET_PATH)
+	if michu_sheet == null or juan_sheet == null:
+		status.text = "NO SE PUDIERON CARGAR LOS PERSONAJES"
+		return
+	michu_sprite.sprite_frames = _build_idle_frames(michu_sheet, 6)
+	juan_sprite.sprite_frames = _build_idle_frames(juan_sheet, 6)
 	michu_sprite.play("idle")
 	juan_sprite.play("idle")
 	michu_button.pressed.connect(_select_character.bind("michu"))
@@ -65,6 +70,12 @@ func _build_idle_frames(sheet: Texture2D, frame_count: int) -> SpriteFrames:
 		atlas.region = Rect2i(index * frame_width, 0, frame_width, sheet.get_height())
 		frames.add_frame("idle", atlas)
 	return frames
+
+func _load_texture(resource_path: String) -> Texture2D:
+	var texture := load(resource_path) as Texture2D
+	if texture == null:
+		push_error("No se pudo cargar la textura: %s" % resource_path)
+	return texture
 
 func _play_intro() -> void:
 	logo.modulate.a = 0.0

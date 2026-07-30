@@ -24,16 +24,16 @@ const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
 const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
 const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
-const TAVERNS: Array[Texture2D] = [
-	preload("res://assets/overworld/taberna_01.png"),
-	preload("res://assets/overworld/taberna_02.png"),
-	preload("res://assets/overworld/taberna_03.png"),
+const TAVERN_PATHS: Array[String] = [
+	"res://assets/overworld/taberna_01.png",
+	"res://assets/overworld/taberna_02.png",
+	"res://assets/overworld/taberna_03.png",
 ]
-const PUB_MEIGAS := preload("res://assets/overworld/pub_meigas.png")
-const SUPERMERCADOS_TRUJILLO := preload("res://assets/overworld/supermercados_trujillo.png")
-const CHARACTER_SHEETS := {
-	&"juan": preload("res://assets/characters/overworld/juan_overworld_animations.png"),
-	&"michu": preload("res://assets/characters/overworld/michu_overworld_animations.png"),
+const PUB_MEIGAS_PATH := "res://assets/overworld/pub_meigas.png"
+const SUPERMERCADOS_TRUJILLO_PATH := "res://assets/overworld/supermercados_trujillo.png"
+const CHARACTER_SHEET_PATHS := {
+	&"juan": "res://assets/characters/overworld/juan_overworld_animations.png",
+	&"michu": "res://assets/characters/overworld/michu_overworld_animations.png",
 }
 const START_POSITION := Vector2(960, 3460)
 const CASTLE_POSITION := Vector2(960, 610)
@@ -136,6 +136,18 @@ func _move_camera_from_drag(vertical_delta: float) -> void:
 func _generate_route() -> void:
 	_draw_connections()
 	route_locations.clear()
+	var tavern_textures: Array[Texture2D] = []
+	for texture_path: String in TAVERN_PATHS:
+		var texture := _load_texture(texture_path)
+		if texture != null:
+			tavern_textures.append(texture)
+	if tavern_textures.size() != TAVERN_PATHS.size():
+		push_error("No se pudieron cargar todas las tabernas del mapa")
+		return
+	var pub_meigas := _load_texture(PUB_MEIGAS_PATH)
+	var supermercados_trujillo := _load_texture(SUPERMERCADOS_TRUJILLO_PATH)
+	if pub_meigas == null or supermercados_trujillo == null:
+		return
 
 	var node_count := 0
 	for step in STEP_POSITIONS:
@@ -151,14 +163,14 @@ func _generate_route() -> void:
 	for step_index in STEP_POSITIONS.size():
 		var step_locations: Array[Node2D] = []
 		for branch_index in STEP_POSITIONS[step_index].size():
-			var tavern_variant := randi_range(0, TAVERNS.size() - 1)
-			var building_texture: Texture2D = TAVERNS[tavern_variant]
+			var tavern_variant := randi_range(0, tavern_textures.size() - 1)
+			var building_texture: Texture2D = tavern_textures[tavern_variant]
 			var location_kind := "tavern"
 			if node_index == meigas_node:
-				building_texture = PUB_MEIGAS
+				building_texture = pub_meigas
 				location_kind = "meigas"
 			elif node_index == trujillo_node:
-				building_texture = SUPERMERCADOS_TRUJILLO
+				building_texture = supermercados_trujillo
 				location_kind = "trujillo"
 
 			var location := Node2D.new()
@@ -201,15 +213,23 @@ func _generate_route() -> void:
 
 func _prepare_character() -> void:
 	var character_id: StringName = GameState.selected_character
-	if not CHARACTER_SHEETS.has(character_id):
+	if not CHARACTER_SHEET_PATHS.has(character_id):
 		character_id = &"michu"
-	var sheet: Texture2D = CHARACTER_SHEETS[character_id]
+	var sheet := _load_texture(CHARACTER_SHEET_PATHS[character_id])
+	if sheet == null:
+		return
 	character_sprite.sprite_frames = _build_character_frames(sheet, character_id)
 	character_sprite.flip_h = false
 	character_sprite.play(&"idle")
 	character_root.position = START_POSITION
 	var start_scale := _perspective_scale(START_POSITION.y)
 	character_root.scale = Vector2.ONE * start_scale
+
+func _load_texture(resource_path: String) -> Texture2D:
+	var texture := load(resource_path) as Texture2D
+	if texture == null:
+		push_error("No se pudo cargar la textura: %s" % resource_path)
+	return texture
 
 func _build_character_frames(sheet: Texture2D, character_id: StringName) -> SpriteFrames:
 	assert(

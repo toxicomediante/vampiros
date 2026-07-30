@@ -8,8 +8,8 @@ const IDLE_FRAME_COUNT := 6
 const CHARACTER_POSITION := Vector2(520, 900)
 const MAX_ENERGY := 3
 const HAND_SIZE := 5
-const ENERGY_FRAME_SIZE := Vector2i(384, 560)
-const ENERGY_FRAME_Y := 220
+const ENERGY_FRAME_SIZE := Vector2i(256, 373)
+const ENERGY_FRAME_Y := 0
 const CARD_SIZE := Vector2(210, 315)
 const CARD_GAP := -78.0
 const CARD_Y := 748.0
@@ -25,7 +25,6 @@ const PLAYER_DEF_BAR_POSITION := Vector2(228.0, 132.0)
 const PLAYER_DEF_BAR_SIZE := Vector2(425.0, 32.0)
 const PLAYER_PORTRAIT_POSITION := Vector2(122.0, 60.0)
 const PLAYER_PORTRAIT_SIZE := Vector2(70.0, 80.0)
-const PORTRAIT_REGION := Rect2i(0, 40, 180, 180)
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -37,18 +36,18 @@ const ENEMY_DEFINITIONS := [
 		"name": "TARÁNTULA",
 		"max_hp": 34,
 		"damage": 6,
-		"texture": preload("res://assets/enemies/tarantula.png"),
+		"texture_path": "res://assets/enemies/tarantula.png",
 		"position": Vector2(1170, 515),
-		"scale": Vector2(0.43, 0.43),
+		"scale": Vector2(0.86, 0.86),
 	},
 	{
 		"id": &"malleiro",
 		"name": "VAMPIRO MALLEIRO",
 		"max_hp": 30,
 		"damage": 7,
-		"texture": preload("res://assets/enemies/vampiro_malleiro.png"),
+		"texture_path": "res://assets/enemies/vampiro_malleiro.png",
 		"position": Vector2(1585, 500),
-		"scale": Vector2(0.33, 0.33),
+		"scale": Vector2(0.66, 0.66),
 	},
 ]
 
@@ -62,8 +61,8 @@ const CHARACTER_SHEET_PATHS := {
 	&"michu": "res://assets/characters/combat/michu_combat_idle.png",
 }
 const PORTRAIT_SHEET_PATHS := {
-	&"juan": "res://assets/characters/juan_idle.png",
-	&"michu": "res://assets/characters/michu_idle.png",
+	&"juan": "res://assets/ui/combat/portraits/juan.png",
+	&"michu": "res://assets/ui/combat/portraits/michu.png",
 }
 const CARD_TEXTURE_PATHS := {
 	&"guantazo": "res://assets/cards/juan/guantazo.png",
@@ -86,12 +85,12 @@ const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
 const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
 const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
 const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
-const ENERGY_STATES_TEXTURE := preload("res://assets/ui/combat/energy_states.png")
-const HP_DEF_FRAME_TEXTURE := preload("res://assets/ui/combat/hp_def_frame.png")
-const HP_BAR_BASE_TEXTURE := preload("res://assets/ui/combat/hp_bar_base.png")
-const HP_BAR_FILL_TEXTURE := preload("res://assets/ui/combat/hp_bar_fill.png")
-const DEF_BAR_BASE_TEXTURE := preload("res://assets/ui/combat/def_bar_base.png")
-const DEF_BAR_FILL_TEXTURE := preload("res://assets/ui/combat/def_bar_fill.png")
+const ENERGY_STATES_PATH := "res://assets/ui/combat/energy_states.png"
+const HP_DEF_FRAME_PATH := "res://assets/ui/combat/hp_def_frame.png"
+const HP_BAR_BASE_PATH := "res://assets/ui/combat/hp_bar_base.png"
+const HP_BAR_FILL_PATH := "res://assets/ui/combat/hp_bar_fill.png"
+const DEF_BAR_BASE_PATH := "res://assets/ui/combat/def_bar_base.png"
+const DEF_BAR_FILL_PATH := "res://assets/ui/combat/def_bar_fill.png"
 
 @onready var background: TextureRect = $Background
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
@@ -112,6 +111,7 @@ var deck: CombatDeck
 var enemies: Array[Dictionary] = []
 var card_buttons: Array[TextureButton] = []
 var card_texture_cache := {}
+var energy_states_texture: Texture2D
 var drag_card: TextureButton
 var drag_card_id: StringName
 var drag_origin := Vector2.ZERO
@@ -181,7 +181,9 @@ func _build_enemies() -> void:
 	for definition: Dictionary in ENEMY_DEFINITIONS:
 		var state: CombatantState = CombatantStateScript.new(definition["max_hp"])
 		var sprite := Sprite2D.new()
-		sprite.texture = definition["texture"]
+		sprite.texture = _load_texture(definition["texture_path"])
+		if sprite.texture == null:
+			continue
 		sprite.position = definition["position"]
 		sprite.scale = definition["scale"]
 		enemies_root.add_child(sprite)
@@ -201,6 +203,23 @@ func _build_enemies() -> void:
 
 
 func _build_runtime_ui() -> void:
+	var hp_bar_base := _load_texture(HP_BAR_BASE_PATH)
+	var def_bar_base := _load_texture(DEF_BAR_BASE_PATH)
+	var hp_bar_fill := _load_texture(HP_BAR_FILL_PATH)
+	var def_bar_fill := _load_texture(DEF_BAR_FILL_PATH)
+	var hp_def_frame := _load_texture(HP_DEF_FRAME_PATH)
+	energy_states_texture = _load_texture(ENERGY_STATES_PATH)
+	if (
+		hp_bar_base == null
+		or def_bar_base == null
+		or hp_bar_fill == null
+		or def_bar_fill == null
+		or hp_def_frame == null
+		or energy_states_texture == null
+	):
+		push_error("No se pudo cargar la interfaz de combate")
+		return
+
 	var player_ui := Control.new()
 	player_ui.name = "PlayerHUD"
 	player_ui.position = PLAYER_UI_POSITION
@@ -210,34 +229,34 @@ func _build_runtime_ui() -> void:
 
 	player_ui.add_child(
 		_make_texture_rect(
-			HP_BAR_BASE_TEXTURE,
+			hp_bar_base,
 			PLAYER_HP_BAR_POSITION,
 			PLAYER_HP_BAR_SIZE
 		)
 	)
 	player_ui.add_child(
 		_make_texture_rect(
-			DEF_BAR_BASE_TEXTURE,
+			def_bar_base,
 			PLAYER_DEF_BAR_POSITION,
 			PLAYER_DEF_BAR_SIZE
 		)
 	)
 
 	player_hp_clip = _make_bar_clip(
-		HP_BAR_FILL_TEXTURE,
+		hp_bar_fill,
 		PLAYER_HP_BAR_POSITION,
 		PLAYER_HP_BAR_SIZE
 	)
 	player_ui.add_child(player_hp_clip)
 	player_block_clip = _make_bar_clip(
-		DEF_BAR_FILL_TEXTURE,
+		def_bar_fill,
 		PLAYER_DEF_BAR_POSITION,
 		PLAYER_DEF_BAR_SIZE
 	)
 	player_ui.add_child(player_block_clip)
 
 	var player_frame := _make_texture_rect(
-		HP_DEF_FRAME_TEXTURE,
+		hp_def_frame,
 		Vector2.ZERO,
 		PLAYER_UI_SIZE
 	)
@@ -372,14 +391,11 @@ func _make_bar_clip(
 	return clip
 
 
-func _player_portrait_texture() -> AtlasTexture:
+func _player_portrait_texture() -> Texture2D:
 	var character_id: StringName = GameState.selected_character
 	if not PORTRAIT_SHEET_PATHS.has(character_id):
 		character_id = &"michu"
-	var portrait := AtlasTexture.new()
-	portrait.atlas = _load_texture(PORTRAIT_SHEET_PATHS[character_id])
-	portrait.region = PORTRAIT_REGION
-	return portrait
+	return _load_texture(PORTRAIT_SHEET_PATHS[character_id])
 
 
 func _load_texture(resource_path: String) -> Texture2D:
@@ -774,7 +790,12 @@ func _status_text(state: CombatantState) -> String:
 func set_energy(value: int) -> void:
 	deck.energy = clampi(value, 0, MAX_ENERGY)
 	var atlas := AtlasTexture.new()
-	atlas.atlas = ENERGY_STATES_TEXTURE
+	if energy_states_texture == null:
+		energy_states_texture = _load_texture(ENERGY_STATES_PATH)
+	if energy_states_texture == null:
+		energy_counter.visible = false
+		return
+	atlas.atlas = energy_states_texture
 	atlas.region = Rect2i(
 		(MAX_ENERGY - deck.energy) * ENERGY_FRAME_SIZE.x,
 		ENERGY_FRAME_Y,
