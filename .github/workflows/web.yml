@@ -27,7 +27,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate committed project
-        run: python3 tools/validate_project.py
+        run: |
+          python3 tools/validate_project.py
+          python3 tools/test_version_web_export.py
 
       - name: Configure Godot
         uses: chickensoft-games/setup-godot@v2
@@ -87,6 +89,14 @@ jobs:
             echo "Web PCK demasiado grande para móviles: ${pck_bytes} bytes"
             exit 1
           fi
+          python3 tools/version_web_export.py build/web "$GITHUB_SHA"
+          versioned_prefix="build/web/index-${GITHUB_SHA}"
+          test -s "${versioned_prefix}.js"
+          test -s "${versioned_prefix}.pck"
+          test -s "${versioned_prefix}.wasm"
+          test ! -e build/web/index.js
+          test ! -e build/web/index.pck
+          test ! -e build/web/index.wasm
           cp assets/social/vampiros_social_preview_v2.png \
             build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll

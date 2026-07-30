@@ -35,6 +35,8 @@ REQUIRED_FILES = (
     Path("scripts/combat_loader.gd"),
     Path("tools/combat_smoke_test.gd"),
     Path("tools/scene_lifecycle_test.gd"),
+    Path("tools/version_web_export.py"),
+    Path("tools/test_version_web_export.py"),
     Path("art_source/.gdignore"),
     Path("art_source/runtime_sources/README.md"),
 )
@@ -225,6 +227,8 @@ def validate_workflows() -> None:
         fail("Web workflow does not enforce the mobile package budget")
     if "scene_lifecycle_test.gd" not in web:
         fail("Web workflow does not test that earlier scenes release their textures")
+    if "version_web_export.py" not in web or '"$GITHUB_SHA"' not in web:
+        fail("Web workflow does not give each deployment cache-safe filenames")
 
     android = Path(".github/workflows/android.yml").read_text(encoding="utf-8")
     android_on = android.split("permissions:", 1)[0]

@@ -38,6 +38,11 @@ El build nunca cambia el proyecto. Si el repositorio está bien, publica
 exactamente esos mismos archivos. Si falta algo o Godot muestra un error, el
 workflow falla antes de desplegar.
 
+Cada despliegue Web añade el commit a los nombres del paquete, del motor y de
+los demás archivos de ejecución. El enlace público no cambia, pero el navegador
+recibe direcciones nuevas en cada versión y no puede mezclar archivos antiguos
+con los recién publicados.
+
 ## Exportaciones
 
 Los presets Web y Android declaran explícitamente:
