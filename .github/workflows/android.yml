@@ -2,6 +2,9 @@ name: Build Android APK (manual)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - build/android-apk-20260731-545976f
 
 permissions:
   contents: read
