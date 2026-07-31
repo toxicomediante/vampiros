@@ -6,6 +6,7 @@ config_version=5
 [autoload]
 
 GameState="*res://scripts/game_state.gd"
+CombatUIRuntime="*res://scripts/combat_ui_runtime.gd"
 
 [application]
 
