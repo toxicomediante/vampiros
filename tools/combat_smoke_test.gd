@@ -2,6 +2,7 @@ extends SceneTree
 
 const COMBAT_SCENE_PATH := "res://scenes/combat.tscn"
 const CHARACTER_IDS := [&"michu", &"juan"]
+const STATUS_ATLAS_PATH := "res://assets/ui/combat/status/status_atlas.png"
 const CARD_TEXTURE_PATHS := [
 	"res://assets/cards/juan/guantazo.png",
 	"res://assets/cards/juan/guardia.png",
@@ -51,6 +52,16 @@ func _run() -> void:
 		texture = null
 		await process_frame
 
+	var status_atlas := load(STATUS_ATLAS_PATH) as Texture2D
+	_expect(status_atlas != null, "no se puede cargar el atlas de estados")
+	if status_atlas != null:
+		_expect(
+			status_atlas.get_size() == Vector2(160, 32),
+			"el atlas de estados no contiene cinco iconos de 32 px"
+		)
+	status_atlas = null
+	await process_frame
+
 	for character_id: StringName in CHARACTER_IDS:
 		game_state.select_character(character_id)
 		game_state.start_new_run()
@@ -81,7 +92,7 @@ func _run() -> void:
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
 		if player_hud != null:
 			_expect(
-				player_hud.size == Vector2(560, 112),
+				player_hud.size == Vector2(520, 199),
 				"%s no aplica el HUD más pequeño" % character_id
 			)
 			_expect(
@@ -89,12 +100,12 @@ func _run() -> void:
 				"%s construye una UI HP/DEF sin todas sus texturas" % character_id
 			)
 			if character_sprite != null:
-				player_hud.position = Vector2(24, 140)
+				player_hud.position = Vector2(24, 126)
 				character_sprite.frame = 3
 				combat.call("_sync_player_hud_motion", 1.0)
 				_expect(
-					player_hud.position.distance_to(Vector2(24, 140)) > 2.0,
-					"%s no acompasa el HUD con el idle" % character_id
+					player_hud.position.distance_to(Vector2(24, 126)) > 8.0,
+					"%s no hace deliberado el movimiento del HUD" % character_id
 				)
 		_expect(
 			background != null and background.texture != null,
@@ -126,6 +137,51 @@ func _run() -> void:
 					]
 				)
 			combat.call("set_energy", 3)
+		var player_state = combat.get("player")
+		var player_status_row := combat.get_node_or_null(
+			"Interface/PlayerHUD/PlayerStatusRow"
+		) as HBoxContainer
+		_expect(
+			player_status_row != null,
+			"%s no crea la fila de estados del protagonista" % character_id
+		)
+		if player_state != null and player_status_row != null:
+			player_state.set("poison", 2)
+			player_state.set("strength", 1)
+			player_state.set("regeneration", 3)
+			player_state.set("autodefense", 4)
+			player_state.set("vulnerable", 2)
+			combat.call("_refresh_all_ui")
+			_expect(
+				player_status_row.visible and player_status_row.get_child_count() == 5,
+				"%s no muestra los cinco estados con iconos" % character_id
+			)
+			_expect_status_item(
+				player_status_row, 0, 0, 2, Color(0.38, 1.0, 0.34),
+				"%s veneno" % character_id
+			)
+			_expect_status_item(
+				player_status_row, 1, 1, 1, Color(1.0, 0.27, 0.20),
+				"%s fuerza" % character_id
+			)
+			_expect_status_item(
+				player_status_row, 2, 2, 3, Color(0.38, 1.0, 0.34),
+				"%s regeneración" % character_id
+			)
+			_expect_status_item(
+				player_status_row, 3, 3, 4, Color(0.82, 0.84, 0.88),
+				"%s autodefensa" % character_id
+			)
+			_expect_status_item(
+				player_status_row, 4, 4, 2, Color(1.0, 0.27, 0.20),
+				"%s vulnerable" % character_id
+			)
+			for property_name: StringName in [
+				&"poison", &"strength", &"regeneration", &"autodefense", &"vulnerable"
+			]:
+				player_state.set(property_name, 0)
+			combat.call("_refresh_all_ui")
+
 		_expect(
 			enemies.size() == 2,
 			"%s no carga los dos enemigos" % character_id
@@ -245,6 +301,39 @@ func _run() -> void:
 			await process_frame
 
 	_finish()
+
+
+func _expect_status_item(
+	row: HBoxContainer,
+	index: int,
+	frame: int,
+	amount: int,
+	color: Color,
+	context: String
+) -> void:
+	if row == null or index >= row.get_child_count():
+		_expect(false, "%s no existe" % context)
+		return
+	var item := row.get_child(index) as HBoxContainer
+	_expect(item != null and item.get_child_count() == 2, "%s está mal agrupado" % context)
+	if item == null or item.get_child_count() != 2:
+		return
+	var icon := item.get_child(0) as TextureRect
+	var label := item.get_child(1) as Label
+	var atlas := icon.texture as AtlasTexture if icon != null else null
+	_expect(
+		atlas != null and atlas.region == Rect2(frame * 32, 0, 32, 32),
+		"%s usa un icono incorrecto" % context
+	)
+	_expect(
+		label != null and label.text == str(amount),
+		"%s muestra un valor incorrecto" % context
+	)
+	if label != null:
+		_expect(
+			label.get_theme_color("font_color").is_equal_approx(color),
+			"%s usa un color incorrecto" % context
+		)
 
 
 func _count_textured_rects(node: Node) -> int:
