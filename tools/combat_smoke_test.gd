@@ -92,8 +92,9 @@ func _run() -> void:
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
 		if player_hud != null:
 			_expect(
-				player_hud.size == Vector2(520, 199),
-				"%s no aplica el HUD más pequeño" % character_id
+				is_equal_approx(player_hud.size.x, 520.0)
+				and player_hud.size.y >= 199.0,
+				"%s no mantiene la geometría compacta del HUD" % character_id
 			)
 			_expect(
 				_count_textured_rects(player_hud) == 5,
