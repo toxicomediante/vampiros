@@ -30,6 +30,7 @@ REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
     Path("assets/ui/combat/hp_def_frame.png"),
+    Path("assets/ui/combat/energy_states.png"),
     Path("assets/ui/combat/hp_bar_base.png"),
     Path("assets/ui/combat/hp_bar_fill.png"),
     Path("assets/ui/combat/def_bar_base.png"),
@@ -38,6 +39,10 @@ REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/ui/combat/portraits/michu.png"),
     *Path("assets/cards").rglob("*.png"),
 }
+
+ENERGY_STATE_SHEET = Path("assets/ui/combat/energy_states.png")
+ENERGY_FRAME_WIDTH = 256
+ENERGY_FRAME_COUNT = 4
 
 LOCKED_COMBAT_IDLE_REGIONS = {
     Path("assets/characters/combat/juan_combat_idle.png"): (
@@ -180,6 +185,42 @@ def validate_idle_motion(
         )
 
 
+def validate_energy_alignment(
+    compressed: bytes,
+    dimensions: tuple[int, int],
+) -> None:
+    width, height = dimensions
+    if width != ENERGY_FRAME_WIDTH * ENERGY_FRAME_COUNT:
+        raise ValueError("energy sheet does not contain four equal-width frames")
+    rows = decode_rgba_scanlines(compressed, width, height)
+    horizontal_centers: list[float] = []
+    opaque_bottoms: list[int] = []
+    for frame_index in range(ENERGY_FRAME_COUNT):
+        frame_x = frame_index * ENERGY_FRAME_WIDTH
+        opaque_points = [
+            (x - frame_x, y)
+            for y, row in enumerate(rows)
+            for x in range(frame_x, frame_x + ENERGY_FRAME_WIDTH)
+            if row[x * 4 + 3] > 0
+        ]
+        if not opaque_points:
+            raise ValueError(f"energy frame {frame_index} is empty")
+        xs = [point[0] for point in opaque_points]
+        ys = [point[1] for point in opaque_points]
+        horizontal_centers.append((min(xs) + max(xs)) / 2.0)
+        opaque_bottoms.append(max(ys))
+    if max(horizontal_centers) - min(horizontal_centers) > 1.0:
+        raise ValueError(
+            "energy states are not centered on the same horizontal anchor: "
+            f"{horizontal_centers}"
+        )
+    if len(set(opaque_bottoms)) != 1:
+        raise ValueError(
+            "energy states do not share a fixed baseline: "
+            f"{opaque_bottoms}"
+        )
+
+
 def validate(path: Path) -> None:
     data = path.read_bytes()
     if data[:8] != b"\x89PNG\r\n\x1a\n":
@@ -280,6 +321,12 @@ def validate(path: Path) -> None:
             dimensions,
             *COMBAT_IDLE_TRAVEL_LIMITS[path],
         )
+    if path == ENERGY_STATE_SHEET:
+        if color_type != 6 or bit_depth != 8 or interlace_method != 0:
+            raise ValueError(
+                "energy alignment validation requires 8-bit non-interlaced RGBA"
+            )
+        validate_energy_alignment(bytes(compressed), dimensions)
 
 
 def main() -> None:

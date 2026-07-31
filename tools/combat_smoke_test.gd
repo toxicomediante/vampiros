@@ -65,7 +65,9 @@ func _run() -> void:
 		var player_hud := combat.get_node_or_null("Interface/PlayerHUD")
 		var background := combat.get_node_or_null("Background") as TextureRect
 		var energy := combat.get_node_or_null("Interface/EnergyCounter") as TextureRect
-		var card_preview := combat.get_node_or_null("Interface/CardPreview") as TextureRect
+		var character_sprite := combat.get_node_or_null(
+			"CombatCharacter/Sprite"
+		) as AnimatedSprite2D
 		var card_buttons: Array = combat.get("card_buttons")
 		var card_cache: Dictionary = combat.get("card_texture_cache")
 		var enemies: Array = combat.get("enemies")
@@ -79,13 +81,21 @@ func _run() -> void:
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
 		if player_hud != null:
 			_expect(
-				player_hud.size == Vector2(640, 128),
-				"%s conserva el HUD grande anterior" % character_id
+				player_hud.size == Vector2(560, 112),
+				"%s no aplica el HUD más pequeño" % character_id
 			)
 			_expect(
 				_count_textured_rects(player_hud) == 5,
 				"%s construye una UI HP/DEF sin todas sus texturas" % character_id
 			)
+			if character_sprite != null:
+				player_hud.position = Vector2(24, 140)
+				character_sprite.frame = 3
+				combat.call("_sync_player_hud_motion", 1.0)
+				_expect(
+					player_hud.position.distance_to(Vector2(24, 140)) > 2.0,
+					"%s no acompasa el HUD con el idle" % character_id
+				)
 		_expect(
 			background != null and background.texture != null,
 			"%s no carga el interior" % character_id
@@ -94,6 +104,28 @@ func _run() -> void:
 			energy != null and energy.texture != null,
 			"%s no carga el contador de energía" % character_id
 		)
+		if energy != null and energy.texture != null:
+			var energy_position := energy.position
+			var energy_size := energy.size
+			for energy_value in [3, 2, 1, 0]:
+				combat.call("set_energy", energy_value)
+				var state_texture := energy.texture as AtlasTexture
+				_expect(
+					state_texture != null
+					and state_texture.region == Rect2(
+						(3 - energy_value) * 256, 0, 256, 373
+					),
+					"%s recorta mal el estado %d/3" % [
+						character_id, energy_value
+					]
+				)
+				_expect(
+					energy.position == energy_position and energy.size == energy_size,
+					"%s mueve el contador al cambiar a %d/3" % [
+						character_id, energy_value
+					]
+				)
+			combat.call("set_energy", 3)
 		_expect(
 			enemies.size() == 2,
 			"%s no carga los dos enemigos" % character_id
@@ -113,26 +145,36 @@ func _run() -> void:
 				button.texture_normal != null,
 				"%s construye una carta visible sin textura" % character_id
 			)
-		_expect(card_preview != null, "%s no crea la vista ampliada" % character_id)
-		if card_preview != null and not card_buttons.is_empty():
+		_expect(
+			combat.get_node_or_null("Interface/CardPreview") == null,
+			"%s aún crea una copia para ampliar la carta" % character_id
+		)
+		if not card_buttons.is_empty():
 			var first_card := card_buttons[0] as TextureButton
+			var home_position: Vector2 = first_card.get_meta("home_position")
 			combat.call("_on_card_hovered", first_card)
+			await create_timer(0.20).timeout
 			_expect(
-				card_preview.visible
-				and card_preview.size == Vector2(360, 540),
-				"%s no amplía la carta al hacer hover" % character_id
+				first_card.scale.x > 1.55
+				and first_card.position.y < home_position.y
+				and first_card.z_index == 90,
+				"%s no anima la propia carta al hacer hover" % character_id
 			)
 			combat.call("_on_card_unhovered", first_card)
+			await create_timer(0.25).timeout
 			_expect(
-				not card_preview.visible,
-				"%s no cierra la vista al salir del hover" % character_id
+				first_card.scale.distance_to(Vector2.ONE) < 0.02
+				and first_card.position.distance_to(home_position) < 0.2,
+				"%s no devuelve la carta ampliada al abanico" % character_id
 			)
 			combat.call("_select_card", first_card)
+			await create_timer(0.20).timeout
 			_expect(
-				card_preview.visible,
-				"%s no amplía la carta seleccionada" % character_id
+				first_card.scale.x > 1.55,
+				"%s no amplía la misma carta seleccionada" % character_id
 			)
 			combat.call("_select_card", first_card)
+			await create_timer(0.20).timeout
 
 			var local_grab := Vector2(52, 94)
 			var touch := InputEventScreenTouch.new()
@@ -148,7 +190,7 @@ func _run() -> void:
 				"%s mezcla coordenadas locales y globales al tocar" % character_id
 			)
 
-			var origin := first_card.position
+			var origin: Vector2 = first_card.get_meta("home_position")
 			var moved_pointer := expected_pointer + Vector2(48, -48)
 			combat.call(
 				"_begin_card_press",
@@ -181,6 +223,7 @@ func _run() -> void:
 				moved_pointer,
 				0
 			)
+			await create_timer(0.20).timeout
 			_expect(
 				first_card.position.distance_to(origin) < 0.1
 				and combat.get("drag_card") == null,

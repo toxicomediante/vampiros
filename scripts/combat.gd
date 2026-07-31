@@ -15,18 +15,29 @@ const CARD_GAP := -78.0
 const CARD_Y := 748.0
 const CARD_FAN_ROTATION := 6.0
 const CARD_FAN_LIFT := 17.0
-const CARD_PREVIEW_SIZE := Vector2(360.0, 540.0)
-const CARD_PREVIEW_Y := 385.0
+const CARD_FOCUS_SCALE := Vector2(1.62, 1.62)
+const CARD_FOCUS_LIFT := 18.0
+const CARD_FOCUS_DURATION := 0.16
+const CARD_RETURN_DURATION := 0.13
+const CARD_FOCUS_Z_INDEX := 90
 const CARD_DRAG_THRESHOLD := 14.0
 const CARD_DRAG_SCALE := Vector2(1.12, 1.12)
 const PLAY_LINE_Y := 700.0
 const MAX_BLOCK_DISPLAY := 20.0
 const PLAYER_UI_POSITION := Vector2(24.0, 140.0)
-const PLAYER_UI_SIZE := Vector2(640.0, 128.0)
-const PLAYER_HP_BAR_POSITION := Vector2(48.0, 15.0)
-const PLAYER_HP_BAR_SIZE := Vector2(548.0, 41.0)
-const PLAYER_DEF_BAR_POSITION := Vector2(48.0, 71.0)
-const PLAYER_DEF_BAR_SIZE := Vector2(548.0, 41.0)
+const PLAYER_UI_SIZE := Vector2(560.0, 112.0)
+const PLAYER_HP_BAR_POSITION := Vector2(42.0, 13.0)
+const PLAYER_HP_BAR_SIZE := Vector2(480.0, 36.0)
+const PLAYER_DEF_BAR_POSITION := Vector2(42.0, 62.0)
+const PLAYER_DEF_BAR_SIZE := Vector2(480.0, 36.0)
+const PLAYER_HUD_FRAME_OFFSETS := [
+	Vector2(0.0, 0.0),
+	Vector2(1.0, -1.0),
+	Vector2(0.0, 1.0),
+	Vector2(-1.0, 3.0),
+	Vector2(0.0, 1.0),
+	Vector2(1.0, -1.0),
+]
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -109,12 +120,10 @@ var deck: CombatDeck
 var enemies: Array[Dictionary] = []
 var card_buttons: Array[TextureButton] = []
 var card_texture_cache := {}
+var card_motion_tweens := {}
 var energy_states_texture: Texture2D
 var drag_card: TextureButton
 var drag_card_id: StringName
-var drag_origin := Vector2.ZERO
-var drag_origin_rotation := 0.0
-var drag_origin_scale := Vector2.ONE
 var drag_pointer_position := Vector2.ZERO
 var drag_grab_local := Vector2.ZERO
 var pressed_card: TextureButton
@@ -132,11 +141,12 @@ var player_block_label: Label
 var player_hp_clip: Control
 var player_block_clip: Control
 var player_status_label: Label
+var player_hud: Control
+var player_hud_base_position := PLAYER_UI_POSITION
 var deck_label: Label
 var hint_label: Label
 var discard_button: Button
 var turn_button: Button
-var card_preview: TextureRect
 
 
 func _ready() -> void:
@@ -161,6 +171,10 @@ func _ready() -> void:
 	sound_button.pressed.connect(_toggle_sound)
 	_refresh_control_icons()
 	_play_scene_intro()
+
+
+func _process(delta: float) -> void:
+	_sync_player_hud_motion(delta)
 
 
 func _exit_tree() -> void:
@@ -233,21 +247,22 @@ func _build_runtime_ui() -> void:
 		push_error("No se pudo cargar la interfaz de combate")
 		return
 
-	var player_ui := Control.new()
-	player_ui.name = "PlayerHUD"
-	player_ui.position = PLAYER_UI_POSITION
-	player_ui.size = PLAYER_UI_SIZE
-	player_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interface.add_child(player_ui)
+	player_hud = Control.new()
+	player_hud.name = "PlayerHUD"
+	player_hud_base_position = PLAYER_UI_POSITION
+	player_hud.position = player_hud_base_position
+	player_hud.size = PLAYER_UI_SIZE
+	player_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	interface.add_child(player_hud)
 
-	player_ui.add_child(
+	player_hud.add_child(
 		_make_texture_rect(
 			hp_bar_base,
 			PLAYER_HP_BAR_POSITION,
 			PLAYER_HP_BAR_SIZE
 		)
 	)
-	player_ui.add_child(
+	player_hud.add_child(
 		_make_texture_rect(
 			def_bar_base,
 			PLAYER_DEF_BAR_POSITION,
@@ -260,20 +275,20 @@ func _build_runtime_ui() -> void:
 		PLAYER_HP_BAR_POSITION,
 		PLAYER_HP_BAR_SIZE
 	)
-	player_ui.add_child(player_hp_clip)
+	player_hud.add_child(player_hp_clip)
 	player_block_clip = _make_bar_clip(
 		def_bar_fill,
 		PLAYER_DEF_BAR_POSITION,
 		PLAYER_DEF_BAR_SIZE
 	)
-	player_ui.add_child(player_block_clip)
+	player_hud.add_child(player_block_clip)
 
 	var player_frame := _make_texture_rect(
 		hp_def_frame,
 		Vector2.ZERO,
 		PLAYER_UI_SIZE
 	)
-	player_ui.add_child(player_frame)
+	player_hud.add_child(player_frame)
 
 	player_hp_label = _make_label(
 		PLAYER_HP_BAR_POSITION,
@@ -283,7 +298,7 @@ func _build_runtime_ui() -> void:
 	)
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	player_ui.add_child(player_hp_label)
+	player_hud.add_child(player_hp_label)
 	player_block_label = _make_label(
 		PLAYER_DEF_BAR_POSITION,
 		PLAYER_DEF_BAR_SIZE,
@@ -292,11 +307,14 @@ func _build_runtime_ui() -> void:
 	)
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	player_ui.add_child(player_block_label)
+	player_hud.add_child(player_block_label)
 	player_status_label = _make_label(
-		Vector2(38, 278), Vector2(640, 34), 13, Color(0.96, 0.82, 0.56)
+		Vector2(28, PLAYER_UI_SIZE.y + 6),
+		Vector2(PLAYER_UI_SIZE.x, 30),
+		12,
+		Color(0.96, 0.82, 0.56)
 	)
-	interface.add_child(player_status_label)
+	player_hud.add_child(player_status_label)
 
 	for enemy_index in enemies.size():
 		var enemy: Dictionary = enemies[enemy_index]
@@ -360,18 +378,22 @@ func _build_runtime_ui() -> void:
 	turn_button.pressed.connect(_end_player_turn)
 	interface.add_child(turn_button)
 
-	card_preview = TextureRect.new()
-	card_preview.name = "CardPreview"
-	card_preview.size = CARD_PREVIEW_SIZE
-	card_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	card_preview.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	card_preview.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	card_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card_preview.z_index = 90
-	card_preview.visible = false
-	interface.add_child(card_preview)
-
 	interface.move_child(curtain, interface.get_child_count() - 1)
+
+
+func _sync_player_hud_motion(delta: float) -> void:
+	if not is_instance_valid(player_hud) or not is_instance_valid(character_sprite):
+		return
+	var frame_index := clampi(
+		character_sprite.frame,
+		0,
+		PLAYER_HUD_FRAME_OFFSETS.size() - 1
+	)
+	var target_position: Vector2 = (
+		player_hud_base_position + PLAYER_HUD_FRAME_OFFSETS[frame_index]
+	)
+	var smoothing := 1.0 - exp(-delta * 13.0)
+	player_hud.position = player_hud.position.lerp(target_position, smoothing)
 
 
 func _make_texture_rect(
@@ -484,7 +506,9 @@ func _rebuild_hand() -> void:
 		button.focus_mode = Control.FOCUS_NONE
 		button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		button.size = CARD_SIZE
-		button.pivot_offset = CARD_SIZE / 2.0
+		# The pivot sits just below the card. Scaling therefore reveals more of
+		# the same card upwards without making the pointer leave it immediately.
+		button.pivot_offset = Vector2(CARD_SIZE.x / 2.0, CARD_SIZE.y + 15.0)
 		button.position = Vector2(
 			start_x + card_index * step,
 			CARD_Y + absf(offset) * CARD_FAN_LIFT
@@ -496,6 +520,10 @@ func _rebuild_hand() -> void:
 			CardCatalog.CARDS[card_id]["cost"],
 		]
 		button.set_meta("card_id", card_id)
+		button.set_meta("home_position", button.position)
+		button.set_meta("home_rotation", button.rotation)
+		button.set_meta("home_scale", Vector2.ONE)
+		button.set_meta("home_z_index", card_index)
 		button.gui_input.connect(_on_card_input.bind(button))
 		button.mouse_entered.connect(_on_card_hovered.bind(button))
 		button.mouse_exited.connect(_on_card_unhovered.bind(button))
@@ -508,13 +536,15 @@ func _start_card_drag(
 	card_id: StringName,
 	pointer: Vector2
 ) -> void:
+	_stop_card_motion(button)
 	drag_card = button
 	drag_card_id = card_id
-	drag_origin = button.position
-	drag_origin_rotation = button.rotation
-	drag_origin_scale = button.scale
 	drag_pointer_position = pointer
 	drag_grab_local = button.get_global_transform().affine_inverse() * pointer
+	if selected_card == button:
+		selected_card = null
+	if hovered_card == button:
+		hovered_card = null
 	button.rotation = 0.0
 	button.scale = CARD_DRAG_SCALE
 	button.z_index = 100
@@ -522,7 +552,6 @@ func _start_card_drag(
 	button.global_position += (
 		pointer - button.get_global_transform() * drag_grab_local
 	)
-	_hide_card_preview()
 
 
 func _move_card_drag(pointer: Vector2) -> void:
@@ -682,58 +711,104 @@ func _on_card_hovered(button: TextureButton) -> void:
 	if drag_card != null or pressed_card != null:
 		return
 	hovered_card = button
-	_show_card_preview(button)
+	_refresh_card_focus()
 
 
 func _on_card_unhovered(button: TextureButton) -> void:
-	if hovered_card == button:
-		hovered_card = null
-	_restore_card_preview()
+	if hovered_card != button:
+		return
+	# Moving and scaling a Control can briefly emit mouse_exited. The short
+	# grace period keeps the hover stable while the card grows.
+	await get_tree().create_timer(0.08).timeout
+	if not is_instance_valid(button) or hovered_card != button:
+		return
+	var pointer_local := (
+		button.get_global_transform().affine_inverse()
+		* get_viewport().get_mouse_position()
+	)
+	if Rect2(Vector2.ZERO, button.size).has_point(pointer_local):
+		return
+	hovered_card = null
+	_refresh_card_focus()
 
 
 func _select_card(button: TextureButton) -> void:
 	selected_card = null if selected_card == button else button
-	_restore_card_preview()
+	_refresh_card_focus()
 
 
-func _show_card_preview(button: TextureButton) -> void:
-	if not is_instance_valid(card_preview) or not is_instance_valid(button):
+func _refresh_card_focus() -> void:
+	for button: TextureButton in card_buttons:
+		if not is_instance_valid(button) or button == drag_card:
+			continue
+		_animate_card_focus(
+			button,
+			button == hovered_card or button == selected_card
+		)
+
+
+func _animate_card_focus(button: TextureButton, focused: bool) -> void:
+	if not button.has_meta("home_position"):
 		return
-	card_preview.texture = button.texture_normal
-	var card_center := button.get_global_transform() * button.pivot_offset
-	card_preview.global_position = Vector2(
-		clampf(
-			card_center.x - CARD_PREVIEW_SIZE.x / 2.0,
-			280.0,
-			1920.0 - 280.0 - CARD_PREVIEW_SIZE.x
-		),
-		CARD_PREVIEW_Y
+	_stop_card_motion(button)
+	var home_position: Vector2 = button.get_meta("home_position")
+	var target_position := (
+		home_position + Vector2(0.0, -CARD_FOCUS_LIFT)
+		if focused
+		else home_position
 	)
-	card_preview.visible = true
+	var target_rotation := (
+		0.0 if focused else float(button.get_meta("home_rotation"))
+	)
+	var target_scale: Vector2 = CARD_FOCUS_SCALE
+	if not focused:
+		target_scale = button.get_meta("home_scale")
+	button.z_index = (
+		CARD_FOCUS_Z_INDEX
+		if focused
+		else int(button.get_meta("home_z_index"))
+	)
+	var target_modulate := Color(1.06, 1.06, 1.06) if focused else Color.WHITE
+	var duration := CARD_FOCUS_DURATION if focused else CARD_RETURN_DURATION
+	var motion := create_tween().set_parallel(true)
+	motion.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	motion.tween_property(button, "position", target_position, duration)
+	motion.tween_property(button, "rotation", target_rotation, duration)
+	motion.tween_property(button, "scale", target_scale, duration)
+	motion.tween_property(button, "modulate", target_modulate, duration)
+	var motion_key := button.get_instance_id()
+	card_motion_tweens[motion_key] = motion
+	motion.finished.connect(_on_card_motion_finished.bind(motion_key, motion))
 
 
-func _restore_card_preview() -> void:
-	if drag_card != null:
-		_hide_card_preview()
-	elif is_instance_valid(hovered_card):
-		_show_card_preview(hovered_card)
-	elif is_instance_valid(selected_card):
-		_show_card_preview(selected_card)
-	else:
-		_hide_card_preview()
+func _stop_card_motion(button: TextureButton) -> void:
+	var motion_key := button.get_instance_id()
+	var motion := card_motion_tweens.get(motion_key) as Tween
+	if motion != null and motion.is_valid():
+		motion.kill()
+	card_motion_tweens.erase(motion_key)
 
 
-func _hide_card_preview() -> void:
-	if is_instance_valid(card_preview):
-		card_preview.visible = false
+func _on_card_motion_finished(motion_key: int, motion: Tween) -> void:
+	if card_motion_tweens.get(motion_key) == motion:
+		card_motion_tweens.erase(motion_key)
+
+
+func _restore_card_home(button: TextureButton) -> void:
+	if not is_instance_valid(button) or not button.has_meta("home_position"):
+		return
+	button.position = button.get_meta("home_position")
+	button.rotation = button.get_meta("home_rotation")
+	button.scale = button.get_meta("home_scale")
+	button.z_index = int(button.get_meta("home_z_index"))
+	button.modulate = Color.WHITE
 
 
 func _reset_card_interaction() -> void:
-	if is_instance_valid(drag_card):
-		drag_card.position = drag_origin
-		drag_card.rotation = drag_origin_rotation
-		drag_card.scale = drag_origin_scale
-		drag_card.modulate = Color.WHITE
+	for button: TextureButton in card_buttons:
+		if is_instance_valid(button):
+			_stop_card_motion(button)
+			_restore_card_home(button)
 	pressed_card = null
 	pressed_card_id = &""
 	pressed_pointer_index = -1
@@ -742,7 +817,6 @@ func _reset_card_interaction() -> void:
 	hovered_card = null
 	selected_card = null
 	_clear_enemy_highlight()
-	_hide_card_preview()
 
 
 func _finish_card_drag(drop_position: Vector2) -> void:
@@ -764,15 +838,11 @@ func _finish_card_drag(drop_position: Vector2) -> void:
 		_clear_enemy_highlight()
 		return
 
-	drag_card.position = drag_origin
-	drag_card.rotation = drag_origin_rotation
-	drag_card.scale = drag_origin_scale
-	drag_card.z_index = card_buttons.find(drag_card)
-	drag_card.modulate = Color.WHITE
+	var returning_card := drag_card
 	drag_card = null
 	drag_card_id = &""
 	_clear_enemy_highlight()
-	_restore_card_preview()
+	_animate_card_focus(returning_card, false)
 
 
 func _try_play_card(card_id: StringName, target_index: int) -> bool:

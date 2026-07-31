@@ -20,7 +20,7 @@ REQUIRED_FILES = (
     Path("export_presets.cfg"),
     Path("assets/audio/title_la_noche_nos_llama.ogg"),
     Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
-    Path("assets/audio/combat_ultima_ronda_v2.ogg"),
+    Path("assets/audio/combat_ultima_ronda.ogg"),
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
     Path("assets/ui/combat/energy_states.png"),
@@ -69,7 +69,7 @@ def validate_required_files() -> None:
     music_paths = (
         Path("assets/audio/title_la_noche_nos_llama.ogg"),
         Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
-        Path("assets/audio/combat_ultima_ronda_v2.ogg"),
+        Path("assets/audio/combat_ultima_ronda.ogg"),
     )
     music_payloads = []
     for music in music_paths:
@@ -99,7 +99,7 @@ def validate_music_routing() -> None:
         Path("scenes/overworld.tscn"): (
             "res://assets/audio/overworld_luces_entre_la_bruma.ogg"
         ),
-        Path("scenes/combat.tscn"): "res://assets/audio/combat_ultima_ronda_v2.ogg",
+        Path("scenes/combat.tscn"): "res://assets/audio/combat_ultima_ronda.ogg",
     }
     expected_files = sorted(
         Path(path.removeprefix("res://")) for path in expected.values()
@@ -156,7 +156,7 @@ def validate_asset_boundaries() -> None:
     for music in (
         "assets/audio/title_la_noche_nos_llama.ogg",
         "assets/audio/overworld_luces_entre_la_bruma.ogg",
-        "assets/audio/combat_ultima_ronda_v2.ogg",
+        "assets/audio/combat_ultima_ronda.ogg",
     ):
         ignored = subprocess.run(
             ["git", "check-ignore", "--quiet", music],
