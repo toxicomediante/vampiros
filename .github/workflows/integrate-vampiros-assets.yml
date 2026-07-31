@@ -24,10 +24,10 @@ jobs:
         run: |
           python -m pip install --quiet gdown
           mkdir -p assets/overworld assets/ui/combat/status
-          gdown --fuzzy 'https://drive.google.com/file/d/1JZ0Eo5Rk2CfcQFCQGLZJDJwOQWG6AN7c/view' -O assets/overworld/overworld_map_top.png
-          gdown --fuzzy 'https://drive.google.com/file/d/1V1Bk-uAklsqKpqyd5rS3kKO3bHPFCarU/view' -O assets/overworld/overworld_map_bottom.png
-          gdown --fuzzy 'https://drive.google.com/file/d/1d8mkXuKnp_AgOD0x8Te1fX7qTynBM68Y/view' -O assets/ui/combat/hp_def_frame.png
-          gdown --fuzzy 'https://drive.google.com/file/d/1ih-zS5VzVAPLqxg3tALAp1FyhE9UygOb/view' -O assets/ui/combat/status/status_atlas.png
+          gdown 1JZ0Eo5Rk2CfcQFCQGLZJDJwOQWG6AN7c -O assets/overworld/overworld_map_top.png
+          gdown 1V1Bk-uAklsqKpqyd5rS3kKO3bHPFCarU -O assets/overworld/overworld_map_bottom.png
+          gdown 1d8mkXuKnp_AgOD0x8Te1fX7qTynBM68Y -O assets/ui/combat/hp_def_frame.png
+          gdown 1ih-zS5VzVAPLqxg3tALAp1FyhE9UygOb -O assets/ui/combat/status/status_atlas.png
           test -s assets/overworld/overworld_map_top.png
           test -s assets/overworld/overworld_map_bottom.png
           test -s assets/ui/combat/hp_def_frame.png
