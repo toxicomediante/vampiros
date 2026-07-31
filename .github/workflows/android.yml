@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - build/android-apk-20260731-545976f
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
