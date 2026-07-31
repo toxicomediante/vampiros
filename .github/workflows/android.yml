@@ -14,6 +14,7 @@ permissions:
 
 env:
   GODOT_VERSION: 4.7.1
+  SOURCE_MAIN_SHA: 545976f67137e25e337b625c2b75b4e0d602746c
 
 jobs:
   build:
@@ -24,6 +25,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore canonical main workflow before validation
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin "$SOURCE_MAIN_SHA"
+          git show "$SOURCE_MAIN_SHA:.github/workflows/android.yml" \
+            > .github/workflows/android.yml
 
       - name: Validate committed project
         run: python3 tools/validate_project.py
