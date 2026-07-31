@@ -6,7 +6,8 @@ Juego PVE de construcción de mazos hecho con Godot 4.7.1.
 
 El repositorio contiene el vertical slice jugable: selección de Juan o Michu,
 mapa de ruta, tabernas, combate, recompensas, música y controles para escritorio
-y pantalla táctil. La versión Web se publica automáticamente desde `main`.
+y pantalla táctil. La versión Web se valida, exporta y publica desde `main`
+mediante GitHub Actions.
 
 Android queda pausado hasta la primera versión estable. Su workflow solo puede
 arrancarse manualmente.
@@ -53,5 +54,3 @@ encrypt_directory=false
 ```
 
 No se cifra ningún archivo del proyecto.
-
-<!-- web-deploy: 2026-07-31T18:58+02:00 -->
