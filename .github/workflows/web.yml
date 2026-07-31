@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read
@@ -20,6 +22,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -108,6 +111,108 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
+
+  android_apk:
+    if: github.event_name == 'pull_request'
+    name: Export debug APK from current main
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate committed project
+        run: python3 tools/validate_project.py
+
+      - name: Configure Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android packages
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Configure Godot
+        uses: chickensoft-games/setup-godot@v2
+        with:
+          version: ${{ env.GODOT_VERSION }}
+          use-dotnet: false
+          include-templates: true
+
+      - name: Create Android debug keystore
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Configure Godot Android paths
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/android_sdk_path = "$ANDROID_SDK_ROOT"
+          export/android/java_sdk_path = "$JAVA_HOME"
+          EOF
+
+      - name: Import in Godot
+        shell: bash
+        run: |
+          set -o pipefail
+          timeout 5m godot --headless --editor --path . --import --quit 2>&1 \
+            | tee godot-import.log
+          python3 tools/validate_project.py --godot-log godot-import.log
+
+      - name: Export APK
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p build
+          timeout 15m godot --headless --path . \
+            --export-debug "Android Debug" build/vampiros-debug.apk 2>&1 \
+            | tee godot-export.log
+          python3 tools/validate_project.py \
+            --godot-log godot-import.log \
+            --godot-log godot-export.log
+
+      - name: Verify APK
+        shell: bash
+        run: |
+          test -s build/vampiros-debug.apk
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/aapt" \
+            dump badging build/vampiros-debug.apk
+          sha256sum build/vampiros-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vampiros-android-debug-main-545976f
+          path: build/vampiros-debug.apk
+          if-no-files-found: error
+          retention-days: 14
 
   deploy:
     needs: build
