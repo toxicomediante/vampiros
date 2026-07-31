@@ -53,3 +53,5 @@ encrypt_directory=false
 ```
 
 No se cifra ningún archivo del proyecto.
+
+<!-- web-deploy: 2026-07-31T18:58+02:00 -->
