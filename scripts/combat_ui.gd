@@ -146,25 +146,17 @@ func _apply_compact_ui() -> void:
 
 
 func _configure_compact_bar_layers(base_frame: TextureRect) -> void:
-	base_frame.z_index = 0
+	base_frame.name = "PlayerHUDFrame"
+	base_frame.z_index = 1
+	var frame_material := ShaderMaterial.new()
+	frame_material.shader = COMPACT_FRAME_OVERLAY_SHADER
+	base_frame.material = frame_material
 	player_hp_background.z_index = -1
 	player_block_background.z_index = -1
-	player_hp_clip.z_index = 1
-	player_block_clip.z_index = 1
-	player_hp_label.z_index = 3
-	player_block_label.z_index = 3
-
-	var ornament_overlay := _make_texture_rect(
-		base_frame.texture,
-		Vector2.ZERO,
-		COMPACT_UI_SIZE
-	)
-	ornament_overlay.name = "PlayerHUDOrnamentOverlay"
-	ornament_overlay.z_index = 2
-	var overlay_material := ShaderMaterial.new()
-	overlay_material.shader = COMPACT_FRAME_OVERLAY_SHADER
-	ornament_overlay.material = overlay_material
-	player_hud.add_child(ornament_overlay)
+	player_hp_clip.z_index = 0
+	player_block_clip.z_index = 0
+	player_hp_label.z_index = 2
+	player_block_label.z_index = 2
 
 
 func _configure_texture_rect(

@@ -226,14 +226,11 @@ func _run() -> void:
 			var block_value := player_hud.get_node_or_null(
 				"PlayerBlockValue"
 			) as Label
-			var ornament_overlay := player_hud.get_node_or_null(
-				"PlayerHUDOrnamentOverlay"
-			) as TextureRect
 			_expect(
-				_count_textured_rects(player_hud) == 2
-				and ornament_overlay != null
-				and ornament_overlay.material is ShaderMaterial,
-				"%s no conserva el marco y su ornamento sobre las barras" % character_id
+				_count_textured_rects(player_hud) == 1
+				and hud_frame.name == "PlayerHUDFrame"
+				and hud_frame.material is ShaderMaterial,
+				"%s duplica el marco compacto del HUD" % character_id
 			)
 			_expect(
 				hp_background != null
@@ -273,13 +270,10 @@ func _run() -> void:
 				and block_value.get_theme_constant("outline_size") >= 5
 				and hp_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
 				and block_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
-				and hp_bar.z_index > hud_frame.z_index
-				and block_bar.z_index > hud_frame.z_index
-				and ornament_overlay != null
-				and ornament_overlay.z_index > hp_bar.z_index
-				and ornament_overlay.z_index > block_bar.z_index
-				and hp_value.z_index > ornament_overlay.z_index
-				and block_value.z_index > ornament_overlay.z_index,
+				and hp_bar.z_index < hud_frame.z_index
+				and block_bar.z_index < hud_frame.z_index
+				and hp_value.z_index > hud_frame.z_index
+				and block_value.z_index > hud_frame.z_index,
 				"%s no superpone valores numéricos legibles a las barras" % character_id
 			)
 			var hud_state = combat.get("player")
