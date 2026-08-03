@@ -202,9 +202,14 @@ func _run() -> void:
 			)
 		_expect(player_hud != null, "%s no construye la UI HP/DEF" % character_id)
 		if player_hud != null:
+			var hud_frame: TextureRect
+			for child: Node in player_hud.get_children():
+				if child is TextureRect:
+					hud_frame = child as TextureRect
+					break
 			_expect(
-				is_equal_approx(player_hud.size.x, 520.0)
-				and player_hud.size.y >= 199.0,
+				hud_frame != null
+				and hud_frame.size == Vector2(520.0, 199.0),
 				"%s no mantiene la geometría compacta del HUD" % character_id
 			)
 			var hp_background := player_hud.get_node_or_null(
@@ -357,6 +362,7 @@ func _run() -> void:
 			await process_frame
 
 		combat.call("_build_reward_offer")
+		var offered_reward_ids: Array[StringName] = []
 		var reward_mat := combat.get_node_or_null(
 			"Presentation/ModalContent/RewardMat"
 		) as TextureRect
@@ -398,6 +404,8 @@ func _run() -> void:
 					character_id, reward_index + 1
 				]
 			)
+			if reward_card != null:
+				offered_reward_ids.append(reward_card.get_meta("card_id"))
 		if energy != null and energy.texture != null:
 			var energy_position := energy.position
 			var energy_size := energy.size
@@ -636,10 +644,17 @@ func _run() -> void:
 				and combat.get("drag_card") == null,
 				"%s no devuelve una carta tras un destino inválido" % character_id
 			)
-		_expect(
-			not card_cache.is_empty() and card_cache.size() <= 3,
-			"%s carga cartas que no están en la mano" % character_id
-		)
+		var allowed_cached_ids: Array[StringName] = offered_reward_ids.duplicate()
+		for hand_button: TextureButton in card_buttons:
+			var hand_card_id: StringName = hand_button.get_meta("card_id")
+			if not allowed_cached_ids.has(hand_card_id):
+				allowed_cached_ids.append(hand_card_id)
+		_expect(not card_cache.is_empty(), "%s no carga cartas" % character_id)
+		for cached_id: StringName in card_cache:
+			_expect(
+				allowed_cached_ids.has(cached_id),
+				"%s carga una carta ajena a la mano y la recompensa" % character_id
+			)
 		for cached_texture: Texture2D in card_cache.values():
 			_expect(
 				cached_texture != null,
