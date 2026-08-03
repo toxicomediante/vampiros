@@ -12,14 +12,7 @@ const COMPACT_STATUS_ICON_SIZE := Vector2(32.0, 32.0)
 const COMPACT_STATUS_FRAME_SIZE := Vector2i(32, 32)
 const COMPACT_FRAME_PATH := "res://assets/ui/combat/hp_def_frame_compact.png"
 const COMPACT_STATUS_ATLAS_PATH := "res://assets/ui/combat/status/status_atlas.png"
-const COMPACT_HUD_FRAME_OFFSETS := [
-	Vector2(0.0, 0.0),
-	Vector2(4.0, -5.0),
-	Vector2(2.0, 5.0),
-	Vector2(-5.0, 13.0),
-	Vector2(0.0, 7.0),
-	Vector2(5.0, -4.0),
-]
+const COMPACT_HUD_VERTICAL_OFFSETS := [0.0, -3.0, -1.0, 4.0, 2.0, -2.0]
 const COMPACT_STATUS_DEFINITIONS := [
 	{
 		"property": &"poison",
@@ -84,22 +77,22 @@ func _apply_compact_ui() -> void:
 	for child: Node in player_hud.get_children():
 		if child is TextureRect:
 			direct_textures.append(child as TextureRect)
-	if direct_textures.size() != 3:
-		push_error("La interfaz HP/DEF base no contiene sus tres capas esperadas")
+	if direct_textures.size() != 1:
+		push_error("La interfaz HP/DEF base no contiene su marco esperado")
 		return
 
-	_configure_texture_rect(
-		direct_textures[0],
+	_configure_color_rect(
+		player_hp_background,
 		COMPACT_HP_BAR_POSITION,
 		COMPACT_HP_BAR_SIZE
 	)
-	_configure_texture_rect(
-		direct_textures[1],
+	_configure_color_rect(
+		player_block_background,
 		COMPACT_DEF_BAR_POSITION,
 		COMPACT_DEF_BAR_SIZE
 	)
-	direct_textures[2].texture = compact_frame
-	_configure_texture_rect(direct_textures[2], Vector2.ZERO, COMPACT_UI_SIZE)
+	direct_textures[0].texture = compact_frame
+	_configure_texture_rect(direct_textures[0], Vector2.ZERO, COMPACT_UI_SIZE)
 
 	_configure_bar_clip(
 		player_hp_clip,
@@ -157,17 +150,32 @@ func _configure_texture_rect(
 	texture_rect.size = size
 
 
+func _configure_color_rect(
+	color_rect: ColorRect,
+	position: Vector2,
+	size: Vector2
+) -> void:
+	if not is_instance_valid(color_rect):
+		return
+	color_rect.position = position
+	color_rect.size = size
+
+
 func _configure_bar_clip(clip: Control, position: Vector2, size: Vector2) -> void:
 	clip.position = position
 	clip.size = size
-	var fill := clip.get_child(0) as TextureRect
-	if fill != null:
+	var fill := clip.get_node_or_null("Fill") as ColorRect
+	if is_instance_valid(fill):
 		fill.size = size
+	var highlight := clip.get_node_or_null("Highlight") as ColorRect
+	if is_instance_valid(highlight):
+		highlight.size = Vector2(size.x, maxf(2.0, floorf(size.y * 0.18)))
 
 
 func _configure_label(label: Label, position: Vector2, size: Vector2) -> void:
 	label.position = position
 	label.size = size
+	_configure_bar_value_label(label)
 
 
 func _make_compact_status_row(
@@ -283,16 +291,16 @@ func _refresh_compact_status_rows(force := false) -> void:
 func _sync_player_hud_motion(delta: float) -> void:
 	if not is_instance_valid(player_hud) or not is_instance_valid(character_sprite):
 		return
-	var frame_index := clampi(
-		character_sprite.frame,
-		0,
-		COMPACT_HUD_FRAME_OFFSETS.size() - 1
+	var vertical_offset := _interpolated_hud_vertical_offset(
+		COMPACT_HUD_VERTICAL_OFFSETS
 	)
-	var target_position: Vector2 = (
-		player_hud_base_position + COMPACT_HUD_FRAME_OFFSETS[frame_index]
+	var smoothing := 1.0 - exp(-delta * 20.0)
+	player_hud.position.x = player_hud_base_position.x
+	player_hud.position.y = lerpf(
+		player_hud.position.y,
+		player_hud_base_position.y + vertical_offset,
+		smoothing
 	)
-	var smoothing := 1.0 - exp(-delta * 15.0)
-	player_hud.position = player_hud.position.lerp(target_position, smoothing)
 
 
 func _sync_compact_bar_widths() -> void:

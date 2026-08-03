@@ -51,8 +51,9 @@ func apply_end_of_turn_statuses() -> Dictionary:
 		"regenerated_hp": 0,
 	}
 	if poison > 0:
-		result["poison_damage"] = poison
+		var previous_hp := hp
 		hp = maxi(0, hp - poison)
+		result["poison_damage"] = previous_hp - hp
 		poison -= 1
 		if hp <= 0:
 			return result

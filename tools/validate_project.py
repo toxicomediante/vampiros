@@ -21,14 +21,16 @@ REQUIRED_FILES = (
     Path("assets/audio/title_la_noche_nos_llama.ogg"),
     Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
     Path("assets/audio/combat_ultima_ronda.ogg"),
+    Path("assets/fonts/press-start-2p-latin-400-normal.woff2"),
     Path("assets/enemies/tarantula.png"),
     Path("assets/enemies/vampiro_malleiro.png"),
+    Path("assets/backgrounds/combat/bar_foreground_01.png"),
+    Path("assets/backgrounds/combat/bar_foreground_02.png"),
     Path("assets/ui/combat/energy_states.png"),
     Path("assets/ui/combat/hp_def_frame.png"),
-    Path("assets/ui/combat/hp_bar_base.png"),
-    Path("assets/ui/combat/hp_bar_fill.png"),
-    Path("assets/ui/combat/def_bar_base.png"),
-    Path("assets/ui/combat/def_bar_fill.png"),
+    Path("assets/ui/combat/boton_descartar.png"),
+    Path("assets/ui/combat/boton_fin_turno.png"),
+    Path("assets/ui/combat/reward_mat.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
     Path("scripts/combat.gd"),
@@ -169,6 +171,7 @@ def validate_asset_boundaries() -> None:
 
 def validate_combat_loading() -> None:
     combat_script = Path("scripts/combat.gd").read_text(encoding="utf-8")
+    combat_ui_script = Path("scripts/combat_ui.gd").read_text(encoding="utf-8")
     forbidden_preloads = (
         'preload("res://assets/cards/',
         'preload("res://assets/backgrounds/combat/',
@@ -224,6 +227,71 @@ def validate_combat_loading() -> None:
         fail("combat curtain is not fail-open before runtime initialization")
     if "PORTRAIT_SHEET_PATHS" in combat_script or "_player_portrait_texture" in combat_script:
         fail("compact combat HUD still references the removed player portrait")
+    legacy_bar_textures = (
+        "hp_bar_base.png",
+        "hp_bar_fill.png",
+        "def_bar_base.png",
+        "def_bar_fill.png",
+    )
+    for texture_name in legacy_bar_textures:
+        if texture_name in combat_script or texture_name in combat_ui_script:
+            fail(f"combat HUD still loads legacy bar texture: {texture_name}")
+    required_runtime_bar_tokens = (
+        'background.name = node_name',
+        'fill.name = "Fill"',
+        'const PLAYER_HP_BAR_COLOR := Color(0.78, 0.08, 0.12, 1.0)',
+        'const PLAYER_BLOCK_BAR_COLOR := Color(0.34, 0.47, 0.60, 1.0)',
+        'player_hp_label.name = "PlayerHPValue"',
+        'player_block_label.name = "PlayerBlockValue"',
+        'label.add_theme_constant_override("outline_size", 5)',
+    )
+    for token in required_runtime_bar_tokens:
+        if token not in combat_script:
+            fail(f"combat HUD is missing runtime bar behavior: {token}")
+    if "COMPACT_HUD_FRAME_OFFSETS" in combat_ui_script:
+        fail("compact combat HUD still uses erratic per-frame XY jumps")
+    if "COMPACT_HUD_VERTICAL_OFFSETS" not in combat_ui_script:
+        fail("compact combat HUD does not define synchronized vertical motion")
+    foreground_node = combat_scene.find('[node name="Foreground"')
+    interface_node = combat_scene.find('[node name="Interface"')
+    if foreground_node < 0 or interface_node < 0 or foreground_node > interface_node:
+        fail("combat foreground must remain below the interface layer")
+    if combat_script.count('"player_feet": Vector2(') != 3:
+        fail("each combat interior must define one fixed player foot anchor")
+    if combat_script.count('"enemy_feet": {') != 3:
+        fail("each combat interior must define fixed enemy foot anchors")
+    if combat_script.count('"visible_bottom": ') != 2:
+        fail("each enemy must anchor its last visible pixel to the foot position")
+    if combat_script.count('"foreground_source_rect": Rect2') != 3:
+        fail("each combat interior must define its foreground crop rectangle")
+    combat_numbers_node = combat_scene.find('[node name="CombatNumbers"')
+    curtain_node = combat_scene.find('[node name="Curtain"')
+    if (
+        combat_numbers_node < interface_node
+        or curtain_node < combat_numbers_node
+    ):
+        fail("combat numbers must remain above the world and below the curtain")
+    for required_combat_number_hook in (
+        "_spawn_combat_number",
+        "_show_status_result",
+        "COMBAT_NUMBER_NORMAL_COLOR",
+        "COMBAT_NUMBER_STATUS_COLOR",
+        "COMBAT_NUMBER_FONT",
+    ):
+        if required_combat_number_hook not in combat_script:
+            fail(f"combat number feedback is missing {required_combat_number_hook}")
+    required_action_button_tokens = (
+        'const DISCARD_BUTTON_POSITION := Vector2(1480.0, 688.0)',
+        'const TURN_BUTTON_POSITION := Vector2(1644.0, 804.0)',
+        'res://assets/ui/combat/boton_descartar.png',
+        'res://assets/ui/combat/boton_fin_turno.png',
+        'discard_button.toggle_mode = true',
+        'discard_button.toggled.connect(_toggle_discard_mode)',
+        'turn_button.pressed.connect(_end_player_turn)',
+    )
+    for token in required_action_button_tokens:
+        if token not in combat_script:
+            fail(f"combat action button integration is missing: {token}")
 
 
 def validate_export_settings() -> None:

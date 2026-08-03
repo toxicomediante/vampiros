@@ -41,6 +41,12 @@ z_index = -1
 [node name="Sprite" type="AnimatedSprite2D" parent="CombatCharacter"]
 position = Vector2(0, -322)
 
+[node name="Foreground" type="TextureRect" parent="."]
+z_index = 10
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 6
+
 [node name="Interface" type="CanvasLayer" parent="."]
 layer = 1
 
@@ -74,6 +80,15 @@ layout_mode = 2
 focus_mode = 0
 ignore_texture_size = true
 stretch_mode = 5
+
+[node name="CombatNumbers" type="Control" parent="Interface"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
 
 [node name="Curtain" type="ColorRect" parent="Interface"]
 anchors_preset = 15

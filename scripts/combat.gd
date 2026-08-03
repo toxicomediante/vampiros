@@ -5,7 +5,15 @@ const CombatDeckScript = preload("res://scripts/combat/combat_deck.gd")
 
 const COMBAT_FRAME_SIZE := Vector2i(362, 644)
 const IDLE_FRAME_COUNT := 6
-const CHARACTER_POSITION := Vector2(520, 900)
+const BACKGROUND_SOURCE_SIZE := Vector2(1672, 941)
+const COMBAT_VIEWPORT_SIZE := Vector2(1920, 1080)
+const COMBAT_NUMBER_FONT := preload(
+	"res://assets/fonts/press-start-2p-latin-400-normal.woff2"
+)
+const COMBAT_NUMBER_NORMAL_COLOR := Color(1.0, 1.0, 1.0)
+const COMBAT_NUMBER_STATUS_COLOR := Color(0.38, 1.0, 0.34)
+const COMBAT_NUMBER_SIZE := Vector2(280.0, 104.0)
+const COMBAT_NUMBER_FONT_SIZE := 52
 const MAX_ENERGY := 3
 const HAND_SIZE := 5
 const ENERGY_FRAME_SIZE := Vector2i(256, 373)
@@ -30,14 +38,24 @@ const PLAYER_HP_BAR_POSITION := Vector2(42.0, 13.0)
 const PLAYER_HP_BAR_SIZE := Vector2(480.0, 36.0)
 const PLAYER_DEF_BAR_POSITION := Vector2(42.0, 62.0)
 const PLAYER_DEF_BAR_SIZE := Vector2(480.0, 36.0)
-const PLAYER_HUD_FRAME_OFFSETS := [
-	Vector2(0.0, 0.0),
-	Vector2(1.0, -1.0),
-	Vector2(0.0, 1.0),
-	Vector2(-1.0, 3.0),
-	Vector2(0.0, 1.0),
-	Vector2(1.0, -1.0),
-]
+const PLAYER_HUD_VERTICAL_OFFSETS := [0.0, -1.0, 0.0, 3.0, 1.5, -0.5]
+const PLAYER_HP_BAR_COLOR := Color(0.78, 0.08, 0.12, 1.0)
+const PLAYER_BLOCK_BAR_COLOR := Color(0.34, 0.47, 0.60, 1.0)
+const PLAYER_BAR_BACKGROUND_COLOR := Color(0.035, 0.03, 0.045, 0.96)
+const PLAYER_BAR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.16)
+const DISCARD_BUTTON_POSITION := Vector2(1480.0, 688.0)
+const DISCARD_BUTTON_SIZE := Vector2(420.0, 104.0)
+const TURN_BUTTON_POSITION := Vector2(1644.0, 804.0)
+const TURN_BUTTON_SIZE := Vector2(256.0, 256.0)
+const ACTION_BUTTON_HOVER_SCALE := Vector2(1.035, 1.035)
+const ACTION_BUTTON_PRESSED_SCALE := Vector2(0.955, 0.955)
+const REWARD_MAT_PATH := "res://assets/ui/combat/reward_mat.png"
+const REWARD_MAT_POSITION := Vector2(128.0, 72.0)
+const REWARD_MAT_SIZE := Vector2(1664.0, 936.0)
+const REWARD_CARD_SIZE := Vector2(296.0, 444.0)
+const REWARD_CARD_Y := 320.0
+const REWARD_CARD_X_POSITIONS := [405.0, 812.0, 1219.0]
+const REWARD_CARD_HOVER_SCALE := Vector2(1.065, 1.065)
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -50,8 +68,8 @@ const ENEMY_DEFINITIONS := [
 		"max_hp": 34,
 		"damage": 6,
 		"texture_path": "res://assets/enemies/tarantula.png",
-		"position": Vector2(1170, 515),
 		"scale": Vector2(0.86, 0.86),
+		"visible_bottom": 482.0,
 	},
 	{
 		"id": &"malleiro",
@@ -59,8 +77,8 @@ const ENEMY_DEFINITIONS := [
 		"max_hp": 30,
 		"damage": 7,
 		"texture_path": "res://assets/enemies/vampiro_malleiro.png",
-		"position": Vector2(1585, 500),
 		"scale": Vector2(0.66, 0.66),
+		"visible_bottom": 686.0,
 	},
 ]
 
@@ -68,6 +86,35 @@ const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 	"res://assets/backgrounds/combat/bar_interior_01.png",
 	"res://assets/backgrounds/combat/bar_interior_02.png",
 	"res://assets/backgrounds/combat/bar_interior_03.png",
+]
+const INTERIOR_LAYOUTS := [
+	{
+		"player_feet": Vector2(560, 960),
+		"enemy_feet": {
+			&"tarantula": Vector2(1120, 690),
+			&"malleiro": Vector2(1570, 760),
+		},
+		"foreground_path": "res://assets/backgrounds/combat/bar_foreground_01.png",
+		"foreground_source_rect": Rect2(0, 542, 430, 399),
+	},
+	{
+		"player_feet": Vector2(530, 975),
+		"enemy_feet": {
+			&"tarantula": Vector2(1080, 800),
+			&"malleiro": Vector2(1500, 800),
+		},
+		"foreground_path": "res://assets/backgrounds/combat/bar_foreground_02.png",
+		"foreground_source_rect": Rect2(0, 692, 349, 249),
+	},
+	{
+		"player_feet": Vector2(650, 950),
+		"enemy_feet": {
+			&"tarantula": Vector2(1050, 650),
+			&"malleiro": Vector2(1450, 690),
+		},
+		"foreground_path": "",
+		"foreground_source_rect": Rect2(),
+	},
 ]
 const CHARACTER_SHEET_PATHS := {
 	&"juan": "res://assets/characters/combat/juan_combat_idle.png",
@@ -96,10 +143,12 @@ const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
 const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 const ENERGY_STATES_PATH := "res://assets/ui/combat/energy_states.png"
 const HP_DEF_FRAME_PATH := "res://assets/ui/combat/hp_def_frame.png"
-const HP_BAR_BASE_PATH := "res://assets/ui/combat/hp_bar_base.png"
-const HP_BAR_FILL_PATH := "res://assets/ui/combat/hp_bar_fill.png"
-const DEF_BAR_BASE_PATH := "res://assets/ui/combat/def_bar_base.png"
-const DEF_BAR_FILL_PATH := "res://assets/ui/combat/def_bar_fill.png"
+const DISCARD_BUTTON_TEXTURE := preload(
+	"res://assets/ui/combat/boton_descartar.png"
+)
+const TURN_BUTTON_TEXTURE := preload(
+	"res://assets/ui/combat/boton_fin_turno.png"
+)
 
 @onready var background: TextureRect = $Background
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
@@ -107,11 +156,13 @@ const DEF_BAR_FILL_PATH := "res://assets/ui/combat/def_bar_fill.png"
 @onready var character_root: Node2D = $CombatCharacter
 @onready var character_sprite: AnimatedSprite2D = $CombatCharacter/Sprite
 @onready var shadow: Polygon2D = $CombatCharacter/Shadow
+@onready var foreground: TextureRect = $Foreground
 @onready var interface: CanvasLayer = $Interface
 @onready var curtain: ColorRect = $Interface/Curtain
 @onready var fullscreen_button: TextureButton = $Interface/TopControls/FullscreenButton
 @onready var sound_button: TextureButton = $Interface/TopControls/SoundButton
 @onready var energy_counter: TextureRect = $Interface/EnergyCounter
+@onready var combat_numbers: Control = $Interface/CombatNumbers
 @onready var modal_content: Control = $Presentation/ModalContent
 
 var sound_enabled := true
@@ -121,6 +172,8 @@ var enemies: Array[Dictionary] = []
 var card_buttons: Array[TextureButton] = []
 var card_texture_cache := {}
 var card_motion_tweens := {}
+var action_button_tweens := {}
+var reward_card_tweens := {}
 var energy_states_texture: Texture2D
 var drag_card: TextureButton
 var drag_card_id: StringName
@@ -135,9 +188,12 @@ var selected_card: TextureButton
 var discard_window_open := true
 var discard_mode := false
 var combat_finished := false
+var interior_index := 0
 
 var player_hp_label: Label
 var player_block_label: Label
+var player_hp_background: ColorRect
+var player_block_background: ColorRect
 var player_hp_clip: Control
 var player_block_clip: Control
 var player_status_label: Label
@@ -145,8 +201,8 @@ var player_hud: Control
 var player_hud_base_position := PLAYER_UI_POSITION
 var deck_label: Label
 var hint_label: Label
-var discard_button: Button
-var turn_button: Button
+var discard_button: TextureButton
+var turn_button: TextureButton
 
 
 func _ready() -> void:
@@ -155,12 +211,13 @@ func _ready() -> void:
 	if not background_music.playing:
 		background_music.play()
 
-	var interior_index := clampi(
+	interior_index = clampi(
 		GameState.selected_combat_interior,
 		0,
 		INTERIOR_BACKGROUND_PATHS.size() - 1
 	)
 	background.texture = _load_texture(INTERIOR_BACKGROUND_PATHS[interior_index])
+	_configure_foreground()
 	_prepare_character()
 	_prepare_combat_state()
 	_build_enemies()
@@ -205,14 +262,22 @@ func _prepare_combat_state() -> void:
 
 
 func _build_enemies() -> void:
+	var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
+	var enemy_feet: Dictionary = layout["enemy_feet"]
 	for definition: Dictionary in ENEMY_DEFINITIONS:
 		var state: CombatantState = CombatantStateScript.new(definition["max_hp"])
 		var sprite := Sprite2D.new()
 		sprite.texture = _load_texture(definition["texture_path"])
 		if sprite.texture == null:
 			continue
-		sprite.position = definition["position"]
 		sprite.scale = definition["scale"]
+		var feet_position: Vector2 = enemy_feet[definition["id"]]
+		sprite.position = _center_sprite_on_feet(
+			sprite.texture,
+			sprite.scale,
+			definition["visible_bottom"],
+			feet_position
+		)
 		enemies_root.add_child(sprite)
 
 		var enemy := {
@@ -229,19 +294,38 @@ func _build_enemies() -> void:
 		_update_enemy_bounds(enemies.size() - 1)
 
 
+func _configure_foreground() -> void:
+	var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
+	var foreground_path: String = layout["foreground_path"]
+	if foreground_path.is_empty():
+		foreground.texture = null
+		foreground.visible = false
+		return
+	var source_rect: Rect2 = layout["foreground_source_rect"]
+	var source_to_viewport := COMBAT_VIEWPORT_SIZE / BACKGROUND_SOURCE_SIZE
+	foreground.position = source_rect.position * source_to_viewport
+	foreground.size = source_rect.size * source_to_viewport
+	foreground.texture = _load_texture(foreground_path)
+	foreground.visible = foreground.texture != null
+
+
+func _center_sprite_on_feet(
+	texture: Texture2D,
+	sprite_scale: Vector2,
+	visible_bottom: float,
+	feet_position: Vector2
+) -> Vector2:
+	return feet_position - Vector2(
+		0.0,
+		(visible_bottom - texture.get_height() * 0.5) * sprite_scale.y
+	)
+
+
 func _build_runtime_ui() -> void:
-	var hp_bar_base := _load_texture(HP_BAR_BASE_PATH)
-	var def_bar_base := _load_texture(DEF_BAR_BASE_PATH)
-	var hp_bar_fill := _load_texture(HP_BAR_FILL_PATH)
-	var def_bar_fill := _load_texture(DEF_BAR_FILL_PATH)
 	var hp_def_frame := _load_texture(HP_DEF_FRAME_PATH)
 	energy_states_texture = _load_texture(ENERGY_STATES_PATH)
 	if (
-		hp_bar_base == null
-		or def_bar_base == null
-		or hp_bar_fill == null
-		or def_bar_fill == null
-		or hp_def_frame == null
+		hp_def_frame == null
 		or energy_states_texture == null
 	):
 		push_error("No se pudo cargar la interfaz de combate")
@@ -255,31 +339,31 @@ func _build_runtime_ui() -> void:
 	player_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	interface.add_child(player_hud)
 
-	player_hud.add_child(
-		_make_texture_rect(
-			hp_bar_base,
-			PLAYER_HP_BAR_POSITION,
-			PLAYER_HP_BAR_SIZE
-		)
-	)
-	player_hud.add_child(
-		_make_texture_rect(
-			def_bar_base,
-			PLAYER_DEF_BAR_POSITION,
-			PLAYER_DEF_BAR_SIZE
-		)
-	)
-
-	player_hp_clip = _make_bar_clip(
-		hp_bar_fill,
+	player_hp_background = _make_bar_background(
+		"PlayerHPBackground",
 		PLAYER_HP_BAR_POSITION,
 		PLAYER_HP_BAR_SIZE
 	)
-	player_hud.add_child(player_hp_clip)
-	player_block_clip = _make_bar_clip(
-		def_bar_fill,
+	player_hud.add_child(player_hp_background)
+	player_block_background = _make_bar_background(
+		"PlayerBlockBackground",
 		PLAYER_DEF_BAR_POSITION,
 		PLAYER_DEF_BAR_SIZE
+	)
+	player_hud.add_child(player_block_background)
+
+	player_hp_clip = _make_color_bar_clip(
+		"PlayerHPBar",
+		PLAYER_HP_BAR_POSITION,
+		PLAYER_HP_BAR_SIZE,
+		PLAYER_HP_BAR_COLOR
+	)
+	player_hud.add_child(player_hp_clip)
+	player_block_clip = _make_color_bar_clip(
+		"PlayerBlockBar",
+		PLAYER_DEF_BAR_POSITION,
+		PLAYER_DEF_BAR_SIZE,
+		PLAYER_BLOCK_BAR_COLOR
 	)
 	player_hud.add_child(player_block_clip)
 
@@ -296,8 +380,10 @@ func _build_runtime_ui() -> void:
 		16,
 		Color(1.0, 0.92, 0.82)
 	)
+	player_hp_label.name = "PlayerHPValue"
 	player_hp_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_hp_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_configure_bar_value_label(player_hp_label)
 	player_hud.add_child(player_hp_label)
 	player_block_label = _make_label(
 		PLAYER_DEF_BAR_POSITION,
@@ -305,8 +391,10 @@ func _build_runtime_ui() -> void:
 		16,
 		Color(0.78, 0.9, 1.0)
 	)
+	player_block_label.name = "PlayerBlockValue"
 	player_block_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	player_block_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_configure_bar_value_label(player_block_label)
 	player_hud.add_child(player_block_label)
 	player_status_label = _make_label(
 		Vector2(28, PLAYER_UI_SIZE.y + 6),
@@ -357,43 +445,131 @@ func _build_runtime_ui() -> void:
 	)
 	interface.add_child(deck_label)
 
-	discard_button = Button.new()
-	discard_button.text = "DESCARTAR CARTA"
-	discard_button.position = Vector2(1590, 848)
-	discard_button.size = Vector2(290, 70)
+	discard_button = _make_action_texture_button(
+		"DiscardButton",
+		DISCARD_BUTTON_TEXTURE,
+		DISCARD_BUTTON_POSITION,
+		DISCARD_BUTTON_SIZE,
+		"DESCARTAR CARTA"
+	)
 	discard_button.toggle_mode = true
-	discard_button.add_theme_font_size_override("font_size", 18)
-	discard_button.add_theme_color_override("font_color", Color(0.9, 0.72, 0.55))
-	discard_button.add_theme_color_override("font_pressed_color", Color.WHITE)
 	discard_button.toggled.connect(_toggle_discard_mode)
 	interface.add_child(discard_button)
 
-	turn_button = Button.new()
-	turn_button.text = "FIN DE TURNO"
-	turn_button.position = Vector2(1590, 938)
-	turn_button.size = Vector2(290, 86)
-	turn_button.add_theme_font_size_override("font_size", 22)
-	turn_button.add_theme_color_override("font_color", Color(1.0, 0.86, 0.64))
-	turn_button.add_theme_color_override("font_hover_color", Color.WHITE)
+	turn_button = _make_action_texture_button(
+		"EndTurnButton",
+		TURN_BUTTON_TEXTURE,
+		TURN_BUTTON_POSITION,
+		TURN_BUTTON_SIZE,
+		"FIN DE TURNO"
+	)
 	turn_button.pressed.connect(_end_player_turn)
 	interface.add_child(turn_button)
 
 	interface.move_child(curtain, interface.get_child_count() - 1)
 
 
+func _make_action_texture_button(
+	node_name: String,
+	texture: Texture2D,
+	position: Vector2,
+	size: Vector2,
+	tooltip: String
+) -> TextureButton:
+	var button := TextureButton.new()
+	button.name = node_name
+	button.position = position
+	button.size = size
+	button.pivot_offset = size * 0.5
+	button.texture_normal = texture
+	button.texture_hover = texture
+	button.texture_pressed = texture
+	button.texture_disabled = texture
+	button.ignore_texture_size = true
+	button.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	button.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	button.focus_mode = Control.FOCUS_NONE
+	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	button.tooltip_text = tooltip
+	button.set_meta("pointer_hovered", false)
+	button.set_meta("pointer_down", false)
+	button.mouse_entered.connect(_set_action_button_hovered.bind(button, true))
+	button.mouse_exited.connect(_set_action_button_hovered.bind(button, false))
+	button.button_down.connect(_set_action_button_pressed.bind(button, true))
+	button.button_up.connect(_set_action_button_pressed.bind(button, false))
+	return button
+
+
+func _set_action_button_hovered(button: TextureButton, hovered: bool) -> void:
+	if not is_instance_valid(button):
+		return
+	button.set_meta("pointer_hovered", hovered)
+	_refresh_action_button_visual(button)
+
+
+func _set_action_button_pressed(button: TextureButton, pressed: bool) -> void:
+	if not is_instance_valid(button):
+		return
+	button.set_meta("pointer_down", pressed)
+	_refresh_action_button_visual(button)
+
+
+func _refresh_action_button_visual(button: TextureButton) -> void:
+	if not is_instance_valid(button):
+		return
+	var target_scale := Vector2.ONE
+	var target_modulate := Color.WHITE
+	if button.disabled:
+		target_scale = Vector2(0.98, 0.98)
+		target_modulate = Color(0.48, 0.48, 0.48, 0.72)
+	elif bool(button.get_meta("pointer_down", false)):
+		target_scale = ACTION_BUTTON_PRESSED_SCALE
+		target_modulate = Color(1.15, 0.86, 0.72)
+	elif button.toggle_mode and button.button_pressed:
+		target_scale = ACTION_BUTTON_HOVER_SCALE
+		target_modulate = Color(1.18, 0.80, 0.68)
+	elif bool(button.get_meta("pointer_hovered", false)):
+		target_scale = ACTION_BUTTON_HOVER_SCALE
+		target_modulate = Color(1.12, 1.06, 0.94)
+
+	var motion_key := button.get_instance_id()
+	var previous := action_button_tweens.get(motion_key) as Tween
+	if previous != null and previous.is_valid():
+		previous.kill()
+	var motion := create_tween().set_parallel(true)
+	motion.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	motion.tween_property(button, "scale", target_scale, 0.10)
+	motion.tween_property(button, "modulate", target_modulate, 0.10)
+	action_button_tweens[motion_key] = motion
+
+
 func _sync_player_hud_motion(delta: float) -> void:
 	if not is_instance_valid(player_hud) or not is_instance_valid(character_sprite):
 		return
-	var frame_index := clampi(
-		character_sprite.frame,
-		0,
-		PLAYER_HUD_FRAME_OFFSETS.size() - 1
+	var vertical_offset := _interpolated_hud_vertical_offset(
+		PLAYER_HUD_VERTICAL_OFFSETS
 	)
-	var target_position: Vector2 = (
-		player_hud_base_position + PLAYER_HUD_FRAME_OFFSETS[frame_index]
+	var smoothing := 1.0 - exp(-delta * 18.0)
+	player_hud.position.x = player_hud_base_position.x
+	player_hud.position.y = lerpf(
+		player_hud.position.y,
+		player_hud_base_position.y + vertical_offset,
+		smoothing
 	)
-	var smoothing := 1.0 - exp(-delta * 13.0)
-	player_hud.position = player_hud.position.lerp(target_position, smoothing)
+
+
+func _interpolated_hud_vertical_offset(offsets: Array) -> float:
+	if offsets.is_empty() or not is_instance_valid(character_sprite):
+		return 0.0
+	var frame_index := posmod(character_sprite.frame, offsets.size())
+	var next_frame_index := (frame_index + 1) % offsets.size()
+	var progress := clampf(character_sprite.get_frame_progress(), 0.0, 1.0)
+	var eased_progress := progress * progress * (3.0 - 2.0 * progress)
+	return lerpf(
+		float(offsets[frame_index]),
+		float(offsets[next_frame_index]),
+		eased_progress
+	)
 
 
 func _make_texture_rect(
@@ -413,19 +589,45 @@ func _make_texture_rect(
 	return texture_rect
 
 
-func _make_bar_clip(
-	texture: Texture2D,
+func _make_bar_background(
+	node_name: String,
 	position: Vector2,
 	size: Vector2
+) -> ColorRect:
+	var background := ColorRect.new()
+	background.name = node_name
+	background.position = position
+	background.size = size
+	background.color = PLAYER_BAR_BACKGROUND_COLOR
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return background
+
+
+func _make_color_bar_clip(
+	node_name: String,
+	position: Vector2,
+	size: Vector2,
+	fill_color: Color
 ) -> Control:
 	var clip := Control.new()
-	clip.name = "BarClip"
+	clip.name = node_name
 	clip.position = position
 	clip.size = size
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var fill := _make_texture_rect(texture, Vector2.ZERO, size)
+	var fill := ColorRect.new()
+	fill.name = "Fill"
+	fill.size = size
+	fill.color = fill_color
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	clip.add_child(fill)
+	var highlight := ColorRect.new()
+	highlight.name = "Highlight"
+	highlight.position = Vector2(0.0, 2.0)
+	highlight.size = Vector2(size.x, maxf(2.0, floorf(size.y * 0.18)))
+	highlight.color = PLAYER_BAR_HIGHLIGHT_COLOR
+	highlight.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	clip.add_child(highlight)
 	return clip
 
 
@@ -461,6 +663,108 @@ func _make_label(position: Vector2, size: Vector2, font_size: int, color: Color)
 	return label
 
 
+func _configure_bar_value_label(label: Label) -> void:
+	label.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	label.add_theme_font_size_override("font_size", 17)
+	label.add_theme_color_override("font_outline_color", Color(0.015, 0.01, 0.02, 0.98))
+	label.add_theme_constant_override("outline_size", 5)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.72))
+	label.add_theme_constant_override("shadow_offset_x", 2)
+	label.add_theme_constant_override("shadow_offset_y", 3)
+
+
+func _spawn_combat_number(
+	amount: int,
+	anchor_position: Vector2,
+	is_healing := false,
+	is_status := false,
+	start_offset := Vector2.ZERO
+) -> Label:
+	if amount <= 0 or not is_instance_valid(combat_numbers):
+		return null
+
+	var label := Label.new()
+	label.name = "CombatNumber"
+	label.text = "%s%d" % ["+" if is_healing else "-", amount]
+	label.position = anchor_position - COMBAT_NUMBER_SIZE / 2.0 + start_offset
+	label.size = COMBAT_NUMBER_SIZE
+	label.pivot_offset = COMBAT_NUMBER_SIZE / 2.0
+	label.scale = Vector2.ONE * 0.48
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	label.add_theme_font_size_override("font_size", COMBAT_NUMBER_FONT_SIZE)
+	label.add_theme_color_override(
+		"font_color",
+		COMBAT_NUMBER_STATUS_COLOR if is_status or is_healing else COMBAT_NUMBER_NORMAL_COLOR
+	)
+	label.add_theme_color_override("font_outline_color", Color(0.015, 0.01, 0.02, 0.96))
+	label.add_theme_constant_override("outline_size", 12)
+	label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.75))
+	label.add_theme_constant_override("shadow_offset_x", 5)
+	label.add_theme_constant_override("shadow_offset_y", 7)
+	combat_numbers.add_child(label)
+
+	var origin := label.position
+	var tween := create_tween()
+	tween.tween_property(label, "scale", Vector2.ONE * 1.28, 0.11).set_trans(
+		Tween.TRANS_BACK
+	).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(
+		label, "position", origin + Vector2(12.0, -22.0), 0.11
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_property(label, "scale", Vector2.ONE, 0.14).set_trans(
+		Tween.TRANS_QUAD
+	).set_ease(Tween.EASE_OUT)
+	tween.parallel().tween_property(
+		label, "position", origin + Vector2(-8.0, -50.0), 0.14
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(0.28)
+	tween.tween_property(
+		label, "position", origin + Vector2(16.0, -132.0), 0.40
+	).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.parallel().tween_property(label, "modulate:a", 0.0, 0.40)
+	tween.finished.connect(label.queue_free)
+	return label
+
+
+func _player_combat_number_position() -> Vector2:
+	return character_root.position + Vector2(0.0, -400.0)
+
+
+func _enemy_combat_number_position(enemy_index: int) -> Vector2:
+	if enemy_index < 0 or enemy_index >= enemies.size():
+		return COMBAT_VIEWPORT_SIZE / 2.0
+	var sprite: Sprite2D = enemies[enemy_index]["sprite"]
+	var rise := maxf(145.0, sprite.texture.get_height() * sprite.scale.y * 0.31)
+	return sprite.position - Vector2(0.0, rise)
+
+
+func _show_status_result(
+	result: Dictionary,
+	anchor_position: Vector2
+) -> void:
+	var poison_damage := int(result.get("poison_damage", 0))
+	var regenerated_hp := int(result.get("regenerated_hp", 0))
+	if poison_damage > 0:
+		_spawn_combat_number(
+			poison_damage,
+			anchor_position,
+			false,
+			true,
+			Vector2(-48.0, 0.0) if regenerated_hp > 0 else Vector2.ZERO
+		)
+	if regenerated_hp > 0:
+		_spawn_combat_number(
+			regenerated_hp,
+			anchor_position,
+			true,
+			true,
+			Vector2(48.0, -34.0) if poison_damage > 0 else Vector2.ZERO
+		)
+
+
 func _begin_player_turn(first_turn := false) -> void:
 	if combat_finished:
 		return
@@ -470,6 +774,7 @@ func _begin_player_turn(first_turn := false) -> void:
 	discard_mode = false
 	discard_button.button_pressed = false
 	discard_button.disabled = false
+	_refresh_action_button_visual(discard_button)
 	deck.draw(maxi(0, HAND_SIZE - deck.hand.size()))
 	set_energy(deck.energy)
 	_rebuild_hand()
@@ -574,6 +879,7 @@ func _discard_card(card_id: StringName) -> void:
 
 func _toggle_discard_mode(enabled: bool) -> void:
 	discard_mode = enabled and discard_window_open
+	_refresh_action_button_visual(discard_button)
 	if discard_mode:
 		hint_label.text = "TOCA UNA CARTA PARA DESCARTARLA"
 	else:
@@ -860,6 +1166,7 @@ func _try_play_card(card_id: StringName, target_index: int) -> bool:
 	discard_mode = false
 	discard_button.button_pressed = false
 	discard_button.disabled = true
+	_refresh_action_button_visual(discard_button)
 	_resolve_card(card_data, target_index)
 	deck.discard(card_id)
 	hint_label.text = "%s JUGADA" % card_data["name"]
@@ -879,9 +1186,19 @@ func _resolve_card(card_data: Dictionary, target_index: int) -> void:
 				if card_data["target"] == CardCatalog.Target.ALL_ENEMIES:
 					for enemy_index in enemies.size():
 						if _enemy_is_alive(enemy_index):
-							_enemy_state(enemy_index).receive_attack(effect["amount"], player.strength)
+							var damage := _enemy_state(enemy_index).receive_attack(
+								effect["amount"], player.strength
+							)
+							_spawn_combat_number(
+								damage, _enemy_combat_number_position(enemy_index)
+							)
 				elif target_index >= 0:
-					_enemy_state(target_index).receive_attack(effect["amount"], player.strength)
+					var damage := _enemy_state(target_index).receive_attack(
+						effect["amount"], player.strength
+					)
+					_spawn_combat_number(
+						damage, _enemy_combat_number_position(target_index)
+					)
 			&"block":
 				player.block += effect["amount"]
 			&"poison":
@@ -892,7 +1209,10 @@ func _resolve_card(card_data: Dictionary, target_index: int) -> void:
 			&"vulnerable":
 				_enemy_state(target_index).vulnerable += effect["amount"]
 			&"heal":
-				player.heal(effect["amount"])
+				var healed_hp := player.heal(effect["amount"])
+				_spawn_combat_number(
+					healed_hp, _player_combat_number_position(), true, true
+				)
 			&"regeneration":
 				player.regeneration += effect["amount"]
 			&"strength":
@@ -902,15 +1222,20 @@ func _resolve_card(card_data: Dictionary, target_index: int) -> void:
 			&"double_poison":
 				_enemy_state(target_index).poison *= 2
 			&"self_damage":
-				player.receive_blockable_damage(effect["amount"])
+				var self_damage := player.receive_blockable_damage(effect["amount"])
+				_spawn_combat_number(
+					self_damage, _player_combat_number_position()
+				)
 
 
 func _end_player_turn() -> void:
 	if combat_finished or drag_card != null or pressed_card != null:
 		return
 	turn_button.disabled = true
+	_refresh_action_button_visual(turn_button)
 	discard_window_open = false
-	player.apply_end_of_turn_statuses()
+	var player_status_result := player.apply_end_of_turn_statuses()
+	_show_status_result(player_status_result, _player_combat_number_position())
 	player.finish_turn()
 	_refresh_all_ui()
 	if player.hp <= 0:
@@ -926,9 +1251,15 @@ func _end_player_turn() -> void:
 		attack_tween.tween_property(sprite, "position:x", original_position.x - 42.0, 0.10)
 		attack_tween.tween_property(sprite, "position:x", original_position.x, 0.16)
 		await attack_tween.finished
-		player.receive_attack(enemies[enemy_index]["damage"])
+		var attack_damage := player.receive_attack(enemies[enemy_index]["damage"])
+		_spawn_combat_number(
+			attack_damage, _player_combat_number_position()
+		)
 		var state := _enemy_state(enemy_index)
-		state.apply_end_of_turn_statuses()
+		var enemy_status_result := state.apply_end_of_turn_statuses()
+		_show_status_result(
+			enemy_status_result, _enemy_combat_number_position(enemy_index)
+		)
 		state.finish_turn()
 		_refresh_all_ui()
 		_remove_dead_enemies()
@@ -941,6 +1272,7 @@ func _end_player_turn() -> void:
 
 	await get_tree().create_timer(0.25).timeout
 	turn_button.disabled = false
+	_refresh_action_button_visual(turn_button)
 	_begin_player_turn()
 
 
@@ -1064,23 +1396,27 @@ func _finish_combat(victory: bool) -> void:
 	if victory:
 		GameState.run_hp = player.hp
 	turn_button.disabled = true
+	_refresh_action_button_visual(turn_button)
+	discard_button.disabled = true
+	_refresh_action_button_visual(discard_button)
 	for button in card_buttons:
 		button.disabled = true
 	var shade := ColorRect.new()
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.015, 0.008, 0.02, 0.82)
-	modal_content.add_child(shade)
-	var result := _make_label(
-		Vector2(420, 310), Vector2(1080, 150), 58,
-		Color(0.95, 0.72, 0.32) if victory else Color(0.9, 0.22, 0.19)
+	shade.color = Color(
+		0.015, 0.008, 0.02, 0.46 if victory else 0.82
 	)
-	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	result.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	result.text = "COMBATE GANADO" if victory else "HAS CAÍDO"
-	modal_content.add_child(result)
+	modal_content.add_child(shade)
 	if victory:
 		_build_reward_offer()
 	else:
+		var result := _make_label(
+			Vector2(420, 310), Vector2(1080, 150), 58, Color(0.9, 0.22, 0.19)
+		)
+		result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		result.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		result.text = "HAS CAÍDO"
+		modal_content.add_child(result)
 		var detail := _make_label(
 			Vector2(500, 470), Vector2(920, 90), 19, Color(0.92, 0.86, 0.78)
 		)
@@ -1091,26 +1427,83 @@ func _finish_combat(victory: bool) -> void:
 
 
 func _build_reward_offer() -> void:
+	var reward_mat := TextureRect.new()
+	reward_mat.name = "RewardMat"
+	reward_mat.position = REWARD_MAT_POSITION
+	reward_mat.size = REWARD_MAT_SIZE
+	reward_mat.texture = _load_texture(REWARD_MAT_PATH)
+	reward_mat.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	reward_mat.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	reward_mat.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	reward_mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	modal_content.add_child(reward_mat)
+
 	var reward_title := _make_label(
-		Vector2(500, 452), Vector2(920, 45), 18, Color(0.92, 0.86, 0.78)
+		Vector2(657, 169), Vector2(607, 80), 22, Color(0.98, 0.88, 0.69)
 	)
+	reward_title.name = "RewardTitle"
 	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	reward_title.text = "ELIGE UNA CARTA O RECHAZA LA RECOMPENSA"
+	reward_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	reward_title.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	reward_title.add_theme_color_override(
+		"font_outline_color", Color(0.02, 0.01, 0.015, 0.98)
+	)
+	reward_title.add_theme_constant_override("outline_size", 7)
+	reward_title.text = "ELIGE UNA CARTA"
 	modal_content.add_child(reward_title)
 	var reward := RewardGenerator.generate(GameState.selected_character)
-	var start_x := 390.0
 	for reward_index in reward.size():
 		var card_id: StringName = reward[reward_index]
 		var card_data: Dictionary = CardCatalog.CARDS[card_id]
-		var choice := Button.new()
-		choice.text = "%s\nCOSTE %d" % [card_data["name"], card_data["cost"]]
-		choice.position = Vector2(start_x + reward_index * 390.0, 530)
-		choice.size = Vector2(360, 150)
-		choice.add_theme_font_size_override("font_size", 17)
-		choice.add_theme_color_override("font_color", Color(0.98, 0.82, 0.57))
+		var choice := TextureButton.new()
+		choice.name = "RewardCard%d" % reward_index
+		choice.texture_normal = _card_texture(card_id)
+		choice.texture_hover = choice.texture_normal
+		choice.texture_pressed = choice.texture_normal
+		choice.ignore_texture_size = true
+		choice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		choice.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		choice.position = Vector2(
+			REWARD_CARD_X_POSITIONS[reward_index], REWARD_CARD_Y
+		)
+		choice.size = REWARD_CARD_SIZE
+		choice.pivot_offset = REWARD_CARD_SIZE / 2.0
+		choice.focus_mode = Control.FOCUS_NONE
+		choice.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		choice.tooltip_text = "%s · Coste %d" % [
+			card_data["name"], card_data["cost"]
+		]
+		choice.set_meta("card_id", card_id)
+		choice.mouse_entered.connect(_animate_reward_card.bind(choice, true))
+		choice.mouse_exited.connect(_animate_reward_card.bind(choice, false))
 		choice.pressed.connect(_choose_reward.bind(card_id))
 		modal_content.add_child(choice)
-	_add_return_button("OMITIR", Vector2(760, 735))
+	_add_return_button("OMITIR", Vector2(760, 820), "RewardSkipButton")
+
+
+func _animate_reward_card(button: TextureButton, hovered: bool) -> void:
+	if not is_instance_valid(button):
+		return
+	var motion_key := button.get_instance_id()
+	var previous := reward_card_tweens.get(motion_key) as Tween
+	if previous != null and previous.is_valid():
+		previous.kill()
+	button.z_index = 20 if hovered else 0
+	var motion := create_tween().set_parallel(true)
+	motion.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	motion.tween_property(
+		button,
+		"scale",
+		REWARD_CARD_HOVER_SCALE if hovered else Vector2.ONE,
+		0.14
+	)
+	motion.tween_property(
+		button,
+		"modulate",
+		Color(1.08, 1.05, 1.02) if hovered else Color.WHITE,
+		0.14
+	)
+	reward_card_tweens[motion_key] = motion
 
 
 func _choose_reward(card_id: StringName) -> void:
@@ -1119,8 +1512,13 @@ func _choose_reward(card_id: StringName) -> void:
 	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
 
-func _add_return_button(text: String, position: Vector2) -> void:
+func _add_return_button(
+	text: String,
+	position: Vector2,
+	node_name := "ReturnButton"
+) -> void:
 	var continue_button := Button.new()
+	continue_button.name = node_name
 	continue_button.text = text
 	continue_button.position = position
 	continue_button.size = Vector2(400, 84)
@@ -1140,7 +1538,7 @@ func _prepare_character() -> void:
 		return
 	character_sprite.sprite_frames = _build_idle_frames(sheet, character_id)
 	character_sprite.position = Vector2(0, -COMBAT_FRAME_SIZE.y / 2.0)
-	character_root.position = CHARACTER_POSITION
+	character_root.position = INTERIOR_LAYOUTS[interior_index]["player_feet"]
 	character_root.scale = Vector2.ONE * (1.13 if character_id == &"michu" else 1.19)
 	shadow.scale = Vector2(0.90, 0.82) if character_id == &"michu" else Vector2(1.12, 0.92)
 	character_sprite.play(&"idle")

@@ -2,7 +2,37 @@ extends SceneTree
 
 const COMBAT_SCENE_PATH := "res://scenes/combat.tscn"
 const CHARACTER_IDS := [&"michu", &"juan"]
+const BACKGROUND_SOURCE_SIZE := Vector2(1672, 941)
+const COMBAT_VIEWPORT_SIZE := Vector2(1920, 1080)
+const INTERIOR_LAYOUTS := [
+	{
+		"player_feet": Vector2(560, 960),
+		"enemy_feet": [Vector2(1120, 690), Vector2(1570, 760)],
+		"has_foreground": true,
+		"foreground_source_rect": Rect2(0, 542, 430, 399),
+	},
+	{
+		"player_feet": Vector2(530, 975),
+		"enemy_feet": [Vector2(1080, 800), Vector2(1500, 800)],
+		"has_foreground": true,
+		"foreground_source_rect": Rect2(0, 692, 349, 249),
+	},
+	{
+		"player_feet": Vector2(650, 950),
+		"enemy_feet": [Vector2(1050, 650), Vector2(1450, 690)],
+		"has_foreground": false,
+		"foreground_source_rect": Rect2(),
+	},
+]
+const ENEMY_VISIBLE_BOTTOMS := [482.0, 686.0]
 const STATUS_ATLAS_PATH := "res://assets/ui/combat/status/status_atlas.png"
+const COMBAT_NUMBER_FONT_PATH := "res://assets/fonts/press-start-2p-latin-400-normal.woff2"
+const COMBAT_NUMBER_NORMAL_COLOR := Color(1.0, 1.0, 1.0)
+const COMBAT_NUMBER_STATUS_COLOR := Color(0.38, 1.0, 0.34)
+const REWARD_MAT_PATH := "res://assets/ui/combat/reward_mat.png"
+const REWARD_MAT_POSITION := Vector2(128.0, 72.0)
+const REWARD_MAT_SIZE := Vector2(1664.0, 936.0)
+const REWARD_CARD_SIZE := Vector2(296.0, 444.0)
 const CARD_TEXTURE_PATHS := [
 	"res://assets/cards/juan/guantazo.png",
 	"res://assets/cards/juan/guardia.png",
@@ -62,6 +92,85 @@ func _run() -> void:
 	status_atlas = null
 	await process_frame
 
+	var reward_mat_texture := load(REWARD_MAT_PATH) as Texture2D
+	_expect(reward_mat_texture != null, "no se puede cargar el tapete de recompensa")
+	if reward_mat_texture != null:
+		_expect(
+			reward_mat_texture.get_size() == Vector2(1920, 1080),
+			"el tapete de recompensa no conserva la resolución del juego"
+		)
+	reward_mat_texture = null
+	await process_frame
+
+	for interior_index in INTERIOR_LAYOUTS.size():
+		game_state.select_combat_interior(interior_index)
+		game_state.select_character(&"michu")
+		game_state.start_new_run()
+		var interior_combat := packed_scene.instantiate()
+		root.add_child(interior_combat)
+		current_scene = interior_combat
+		for _frame in 12:
+			await process_frame
+
+		var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
+		var character_root := interior_combat.get_node_or_null(
+			"CombatCharacter"
+		) as Node2D
+		var foreground := interior_combat.get_node_or_null(
+			"Foreground"
+		) as TextureRect
+		var interior_enemies: Array = interior_combat.get("enemies")
+		_expect(
+			character_root != null and character_root.position == layout["player_feet"],
+			"el bar %d no respeta el punto de apoyo del protagonista" % (interior_index + 1)
+		)
+		_expect(
+			foreground != null
+			and foreground.visible == layout["has_foreground"]
+			and (foreground.texture != null) == layout["has_foreground"],
+			"el bar %d no configura correctamente el primer plano" % (interior_index + 1)
+		)
+		if foreground != null and layout["has_foreground"]:
+			var source_rect: Rect2 = layout["foreground_source_rect"]
+			var source_to_viewport := COMBAT_VIEWPORT_SIZE / BACKGROUND_SOURCE_SIZE
+			_expect(
+				foreground.position.distance_to(
+					source_rect.position * source_to_viewport
+				) < 0.1
+				and foreground.size.distance_to(
+					source_rect.size * source_to_viewport
+				) < 0.1,
+				"el primer plano del bar %d no conserva su encaje" % (interior_index + 1)
+			)
+		_expect(
+			interior_enemies.size() == 2,
+			"el bar %d no carga los dos enemigos" % (interior_index + 1)
+		)
+		for enemy_index in mini(interior_enemies.size(), 2):
+			var enemy: Dictionary = interior_enemies[enemy_index]
+			var enemy_sprite := enemy.get("sprite") as Sprite2D
+			if enemy_sprite != null and enemy_sprite.texture != null:
+				var actual_feet := enemy_sprite.position + Vector2(
+					0.0,
+					(
+						ENEMY_VISIBLE_BOTTOMS[enemy_index]
+						- enemy_sprite.texture.get_height() * 0.5
+					) * enemy_sprite.scale.y
+				)
+				_expect(
+					actual_feet.distance_to(layout["enemy_feet"][enemy_index]) < 0.1,
+					"el enemigo %d del bar %d no apoya los pies en su zona" % [
+						enemy_index + 1, interior_index + 1
+					]
+				)
+
+		current_scene = null
+		interior_combat.queue_free()
+		for _frame in 3:
+			await process_frame
+
+	game_state.select_combat_interior(0)
+
 	for character_id: StringName in CHARACTER_IDS:
 		game_state.select_character(character_id)
 		game_state.start_new_run()
@@ -76,6 +185,8 @@ func _run() -> void:
 		var player_hud := combat.get_node_or_null("Interface/PlayerHUD")
 		var background := combat.get_node_or_null("Background") as TextureRect
 		var energy := combat.get_node_or_null("Interface/EnergyCounter") as TextureRect
+		var discard_action := combat.get("discard_button") as TextureButton
+		var turn_action := combat.get("turn_button") as TextureButton
 		var character_sprite := combat.get_node_or_null(
 			"CombatCharacter/Sprite"
 		) as AnimatedSprite2D
@@ -96,18 +207,122 @@ func _run() -> void:
 				and player_hud.size.y >= 199.0,
 				"%s no mantiene la geometría compacta del HUD" % character_id
 			)
+			var hp_background := player_hud.get_node_or_null(
+				"PlayerHPBackground"
+			) as ColorRect
+			var block_background := player_hud.get_node_or_null(
+				"PlayerBlockBackground"
+			) as ColorRect
+			var hp_bar := player_hud.get_node_or_null("PlayerHPBar") as Control
+			var block_bar := player_hud.get_node_or_null("PlayerBlockBar") as Control
+			var hp_value := player_hud.get_node_or_null("PlayerHPValue") as Label
+			var block_value := player_hud.get_node_or_null(
+				"PlayerBlockValue"
+			) as Label
 			_expect(
-				_count_textured_rects(player_hud) == 5,
-				"%s construye una UI HP/DEF sin todas sus texturas" % character_id
+				_count_textured_rects(player_hud) == 1,
+				"%s no limita las texturas del HUD al marco decorativo" % character_id
 			)
+			_expect(
+				hp_background != null
+				and block_background != null
+				and hp_bar != null
+				and block_bar != null,
+				"%s no genera las barras HP/DEF con Godot" % character_id
+			)
+			_expect(
+				hp_background != null
+				and hp_background.color == Color(0.035, 0.03, 0.045, 0.96)
+				and block_background != null
+				and block_background.color == Color(0.035, 0.03, 0.045, 0.96),
+				"%s no conserva el fondo oscuro de las barras" % character_id
+			)
+			var hp_fill: ColorRect
+			var block_fill: ColorRect
+			if hp_bar != null:
+				hp_fill = hp_bar.get_node_or_null("Fill") as ColorRect
+			if block_bar != null:
+				block_fill = block_bar.get_node_or_null("Fill") as ColorRect
+			_expect(
+				hp_fill != null and hp_fill.color == Color(0.78, 0.08, 0.12, 1.0),
+				"%s no usa rojo en la barra de vida" % character_id
+			)
+			_expect(
+				block_fill != null
+				and block_fill.color == Color(0.34, 0.47, 0.60, 1.0),
+				"%s no usa gris azulado en la barra de bloqueo" % character_id
+			)
+			_expect(
+				hp_bar != null
+				and block_bar != null
+				and hp_value != null
+				and block_value != null
+				and hp_value.get_theme_constant("outline_size") >= 5
+				and block_value.get_theme_constant("outline_size") >= 5
+				and hp_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
+				and block_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
+				and hp_value.get_index() > hp_bar.get_index()
+				and block_value.get_index() > block_bar.get_index(),
+				"%s no superpone valores numéricos legibles a las barras" % character_id
+			)
+			var hud_state = combat.get("player")
+			if (
+				hud_state != null
+				and hp_bar != null
+				and block_bar != null
+				and hp_value != null
+				and block_value != null
+			):
+				hud_state.set("hp", hud_state.get("max_hp"))
+				hud_state.set("block", 0)
+				combat.call("_refresh_all_ui")
+				_expect(
+					is_equal_approx(hp_bar.size.x, 337.0)
+					and is_equal_approx(block_bar.size.x, 0.0)
+					and hp_value.text == "HP  %d / %d" % [
+						hud_state.get("max_hp"), hud_state.get("max_hp")
+					]
+					and block_value.text == "DEF  0",
+					"%s no representa bien vida completa y bloqueo cero" % character_id
+				)
+				hud_state.set("hp", 0)
+				hud_state.set("block", 10)
+				combat.call("_refresh_all_ui")
+				_expect(
+					is_equal_approx(hp_bar.size.x, 0.0)
+					and is_equal_approx(block_bar.size.x, 168.5)
+					and hp_value.text == "HP  0 / %d" % hud_state.get("max_hp")
+					and block_value.text == "DEF  10",
+					"%s no representa bien vida vacía y bloqueo estimado" % character_id
+				)
+				hud_state.set("hp", hud_state.get("max_hp"))
+				hud_state.set("block", 25)
+				combat.call("_refresh_all_ui")
+				_expect(
+					is_equal_approx(block_bar.size.x, 337.0)
+					and block_value.text == "DEF  25",
+					"%s no limita visualmente el bloqueo alto conservando su valor" % character_id
+				)
+				hud_state.set("block", 0)
+				combat.call("_refresh_all_ui")
 			if character_sprite != null:
-				player_hud.position = Vector2(24, 126)
-				character_sprite.frame = 3
+				player_hud.position = Vector2(90, 80)
+				character_sprite.pause()
+				character_sprite.set_frame_and_progress(3, 0.0)
 				combat.call("_sync_player_hud_motion", 1.0)
 				_expect(
-					player_hud.position.distance_to(Vector2(24, 126)) > 8.0,
-					"%s no hace deliberado el movimiento del HUD" % character_id
+					is_equal_approx(player_hud.position.x, 24.0)
+					and absf(player_hud.position.y - 126.0) <= 4.1,
+					"%s permite deriva o saltos erráticos en el HUD" % character_id
 				)
+				var low_position := player_hud.position.y
+				character_sprite.set_frame_and_progress(0, 0.0)
+				combat.call("_sync_player_hud_motion", 1.0)
+				_expect(
+					low_position - player_hud.position.y >= 3.9,
+					"%s no acompasa el HUD con la animación del personaje" % character_id
+				)
+				character_sprite.play(&"idle")
 		_expect(
 			background != null and background.texture != null,
 			"%s no carga el interior" % character_id
@@ -116,6 +331,73 @@ func _run() -> void:
 			energy != null and energy.texture != null,
 			"%s no carga el contador de energía" % character_id
 		)
+		_expect(
+			discard_action != null
+			and discard_action.texture_normal != null
+			and discard_action.position == Vector2(1480.0, 688.0)
+			and discard_action.size == Vector2(420.0, 104.0)
+			and discard_action.toggle_mode,
+			"%s no construye el botón gráfico DESCARTAR" % character_id
+		)
+		_expect(
+			turn_action != null
+			and turn_action.texture_normal != null
+			and turn_action.position == Vector2(1644.0, 804.0)
+			and turn_action.size == Vector2(256.0, 256.0),
+			"%s no construye el botón gráfico FIN DE TURNO" % character_id
+		)
+		if discard_action != null:
+			discard_action.button_pressed = true
+			await process_frame
+			_expect(
+				bool(combat.get("discard_mode")),
+				"%s pierde el funcionamiento táctil de DESCARTAR" % character_id
+			)
+			discard_action.button_pressed = false
+			await process_frame
+
+		combat.call("_build_reward_offer")
+		var reward_mat := combat.get_node_or_null(
+			"Presentation/ModalContent/RewardMat"
+		) as TextureRect
+		var reward_title := combat.get_node_or_null(
+			"Presentation/ModalContent/RewardTitle"
+		) as Label
+		var reward_skip := combat.get_node_or_null(
+			"Presentation/ModalContent/RewardSkipButton"
+		) as Button
+		_expect(
+			reward_mat != null
+			and reward_mat.texture != null
+			and reward_mat.position == REWARD_MAT_POSITION
+			and reward_mat.size == REWARD_MAT_SIZE
+			and reward_mat.size.x < 1920.0
+			and reward_mat.size.y < 1080.0,
+			"%s no superpone el tapete dejando visible la escena" % character_id
+		)
+		_expect(
+			reward_title != null
+			and reward_title.text == "ELIGE UNA CARTA"
+			and reward_title.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH),
+			"%s no integra el título en la cartela superior" % character_id
+		)
+		_expect(
+			reward_skip != null and reward_skip.text == "OMITIR",
+			"%s pierde la opción secundaria de omitir recompensa" % character_id
+		)
+		for reward_index in 3:
+			var reward_card := combat.get_node_or_null(
+				"Presentation/ModalContent/RewardCard%d" % reward_index
+			) as TextureButton
+			_expect(
+				reward_card != null
+				and reward_card.texture_normal != null
+				and reward_card.size == REWARD_CARD_SIZE
+				and reward_card.has_meta("card_id"),
+				"%s no representa gráficamente la recompensa %d" % [
+					character_id, reward_index + 1
+				]
+			)
 		if energy != null and energy.texture != null:
 			var energy_position := energy.position
 			var energy_size := energy.size
@@ -193,6 +475,74 @@ func _run() -> void:
 				sprite != null and sprite.texture != null,
 				"%s construye un enemigo sin textura" % character_id
 			)
+
+		var combat_number_layer := combat.get_node_or_null(
+			"Interface/CombatNumbers"
+		) as Control
+		_expect(
+			combat_number_layer != null,
+			"%s no crea la capa de números de combate" % character_id
+		)
+		if combat_number_layer != null:
+			var normal_popup := combat.call(
+				"_spawn_combat_number", 7, Vector2(700, 500), false, false
+			) as Label
+			var poison_popup := combat.call(
+				"_spawn_combat_number", 3, Vector2(850, 500), false, true
+			) as Label
+			var healing_popup := combat.call(
+				"_spawn_combat_number", 4, Vector2(1000, 500), true, true
+			) as Label
+			_expect(
+				normal_popup != null and normal_popup.text == "-7",
+				"%s no muestra el daño normal con signo" % character_id
+			)
+			_expect(
+				poison_popup != null and poison_popup.text == "-3",
+				"%s no muestra el daño de veneno con signo" % character_id
+			)
+			_expect(
+				healing_popup != null and healing_popup.text == "+4",
+				"%s no muestra la recuperación con signo" % character_id
+			)
+			var combat_font := load(COMBAT_NUMBER_FONT_PATH) as Font
+			if normal_popup != null:
+				_expect(
+					normal_popup.get_theme_font("font") == combat_font,
+					"%s no usa la fuente del proyecto en el daño" % character_id
+				)
+				_expect(
+					normal_popup.get_theme_color("font_color").is_equal_approx(
+						COMBAT_NUMBER_NORMAL_COLOR
+					),
+					"%s no muestra el daño normal en blanco" % character_id
+				)
+			if poison_popup != null:
+				_expect(
+					poison_popup.get_theme_color("font_color").is_equal_approx(
+						COMBAT_NUMBER_STATUS_COLOR
+					),
+					"%s no muestra el veneno en verde" % character_id
+				)
+			if healing_popup != null:
+				_expect(
+					healing_popup.get_theme_color("font_color").is_equal_approx(
+						COMBAT_NUMBER_STATUS_COLOR
+					),
+					"%s no muestra la recuperación en verde" % character_id
+				)
+			var popup_origin := normal_popup.position if normal_popup != null else Vector2.ZERO
+			await create_timer(0.14).timeout
+			if normal_popup != null:
+				_expect(
+					normal_popup.position.y < popup_origin.y - 18.0
+					and normal_popup.scale.x > 1.05,
+					"%s no anima el número con movimiento y escala" % character_id
+				)
+			for popup: Label in [normal_popup, poison_popup, healing_popup]:
+				if is_instance_valid(popup):
+					popup.queue_free()
+			await process_frame
 		_expect(
 			card_buttons.size() == 5,
 			"%s no roba una mano inicial de 5 cartas" % character_id
@@ -355,5 +705,5 @@ func _expect(condition: bool, message: String) -> void:
 
 func _finish() -> void:
 	if not failed:
-		print("COMBAT SMOKE OK: Michu, Juan, HUD compacto, cartas y carga selectiva")
+		print("COMBAT SMOKE OK: 3 fondos, profundidad, Michu, Juan, HUD y cartas")
 	quit(1 if failed else 0)
