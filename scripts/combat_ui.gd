@@ -12,6 +12,9 @@ const COMPACT_STATUS_ICON_SIZE := Vector2(32.0, 32.0)
 const COMPACT_STATUS_FRAME_SIZE := Vector2i(32, 32)
 const COMPACT_FRAME_PATH := "res://assets/ui/combat/hp_def_frame_compact.png"
 const COMPACT_STATUS_ATLAS_PATH := "res://assets/ui/combat/status/status_atlas.png"
+const COMPACT_FRAME_OVERLAY_SHADER := preload(
+	"res://shaders/hud_frame_overlay.gdshader"
+)
 const COMPACT_HUD_VERTICAL_OFFSETS := [0.0, -3.0, -1.0, 4.0, 2.0, -2.0]
 const COMPACT_STATUS_DEFINITIONS := [
 	{
@@ -93,6 +96,7 @@ func _apply_compact_ui() -> void:
 	)
 	direct_textures[0].texture = compact_frame
 	_configure_texture_rect(direct_textures[0], Vector2.ZERO, COMPACT_UI_SIZE)
+	_configure_compact_bar_layers(direct_textures[0])
 
 	_configure_bar_clip(
 		player_hp_clip,
@@ -139,6 +143,28 @@ func _apply_compact_ui() -> void:
 		enemy_status_signatures.append("")
 
 	interface.move_child(curtain, interface.get_child_count() - 1)
+
+
+func _configure_compact_bar_layers(base_frame: TextureRect) -> void:
+	base_frame.z_index = 0
+	player_hp_background.z_index = -1
+	player_block_background.z_index = -1
+	player_hp_clip.z_index = 1
+	player_block_clip.z_index = 1
+	player_hp_label.z_index = 3
+	player_block_label.z_index = 3
+
+	var ornament_overlay := _make_texture_rect(
+		base_frame.texture,
+		Vector2.ZERO,
+		COMPACT_UI_SIZE
+	)
+	ornament_overlay.name = "PlayerHUDOrnamentOverlay"
+	ornament_overlay.z_index = 2
+	var overlay_material := ShaderMaterial.new()
+	overlay_material.shader = COMPACT_FRAME_OVERLAY_SHADER
+	ornament_overlay.material = overlay_material
+	player_hud.add_child(ornament_overlay)
 
 
 func _configure_texture_rect(

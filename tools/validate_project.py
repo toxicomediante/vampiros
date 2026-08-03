@@ -30,6 +30,7 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/hp_def_frame.png"),
     Path("assets/ui/combat/boton_descartar.png"),
     Path("assets/ui/combat/boton_fin_turno.png"),
+    Path("assets/ui/combat/boton_omitir.png"),
     Path("assets/ui/combat/reward_mat.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
@@ -281,13 +282,15 @@ def validate_combat_loading() -> None:
         if required_combat_number_hook not in combat_script:
             fail(f"combat number feedback is missing {required_combat_number_hook}")
     required_action_button_tokens = (
-        'const DISCARD_BUTTON_POSITION := Vector2(1480.0, 688.0)',
-        'const TURN_BUTTON_POSITION := Vector2(1644.0, 804.0)',
+        'const DISCARD_BUTTON_POSITION := Vector2(1497.0, 976.0)',
+        'const TURN_BUTTON_POSITION := Vector2(1653.0, 721.0)',
         'res://assets/ui/combat/boton_descartar.png',
         'res://assets/ui/combat/boton_fin_turno.png',
+        'res://assets/ui/combat/boton_omitir.png',
         'discard_button.toggle_mode = true',
         'discard_button.toggled.connect(_toggle_discard_mode)',
         'turn_button.pressed.connect(_end_player_turn)',
+        '_add_reward_skip_button()',
     )
     for token in required_action_button_tokens:
         if token not in combat_script:

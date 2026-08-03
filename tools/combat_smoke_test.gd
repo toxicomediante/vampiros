@@ -33,6 +33,8 @@ const REWARD_MAT_PATH := "res://assets/ui/combat/reward_mat.png"
 const REWARD_MAT_POSITION := Vector2(128.0, 72.0)
 const REWARD_MAT_SIZE := Vector2(1664.0, 936.0)
 const REWARD_CARD_SIZE := Vector2(296.0, 444.0)
+const REWARD_SKIP_BUTTON_POSITION := Vector2(750.0, 790.0)
+const REWARD_SKIP_BUTTON_SIZE := Vector2(420.0, 104.0)
 const CARD_TEXTURE_PATHS := [
 	"res://assets/cards/juan/guantazo.png",
 	"res://assets/cards/juan/guardia.png",
@@ -224,9 +226,14 @@ func _run() -> void:
 			var block_value := player_hud.get_node_or_null(
 				"PlayerBlockValue"
 			) as Label
+			var ornament_overlay := player_hud.get_node_or_null(
+				"PlayerHUDOrnamentOverlay"
+			) as TextureRect
 			_expect(
-				_count_textured_rects(player_hud) == 1,
-				"%s no limita las texturas del HUD al marco decorativo" % character_id
+				_count_textured_rects(player_hud) == 2
+				and ornament_overlay != null
+				and ornament_overlay.material is ShaderMaterial,
+				"%s no conserva el marco y su ornamento sobre las barras" % character_id
 			)
 			_expect(
 				hp_background != null
@@ -266,8 +273,13 @@ func _run() -> void:
 				and block_value.get_theme_constant("outline_size") >= 5
 				and hp_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
 				and block_value.get_theme_font("font") == load(COMBAT_NUMBER_FONT_PATH)
-				and hp_value.get_index() > hp_bar.get_index()
-				and block_value.get_index() > block_bar.get_index(),
+				and hp_bar.z_index > hud_frame.z_index
+				and block_bar.z_index > hud_frame.z_index
+				and ornament_overlay != null
+				and ornament_overlay.z_index > hp_bar.z_index
+				and ornament_overlay.z_index > block_bar.z_index
+				and hp_value.z_index > ornament_overlay.z_index
+				and block_value.z_index > ornament_overlay.z_index,
 				"%s no superpone valores numéricos legibles a las barras" % character_id
 			)
 			var hud_state = combat.get("player")
@@ -337,9 +349,15 @@ func _run() -> void:
 			"%s no carga el contador de energía" % character_id
 		)
 		_expect(
+			energy != null
+			and energy.position == Vector2(24.0, 690.0)
+			and energy.size == Vector2(230.0, 330.0),
+			"%s no mantiene la energía en la nueva alineación" % character_id
+		)
+		_expect(
 			discard_action != null
 			and discard_action.texture_normal != null
-			and discard_action.position == Vector2(1480.0, 688.0)
+			and discard_action.position == Vector2(1497.0, 976.0)
 			and discard_action.size == Vector2(420.0, 104.0)
 			and discard_action.toggle_mode,
 			"%s no construye el botón gráfico DESCARTAR" % character_id
@@ -347,7 +365,7 @@ func _run() -> void:
 		_expect(
 			turn_action != null
 			and turn_action.texture_normal != null
-			and turn_action.position == Vector2(1644.0, 804.0)
+			and turn_action.position == Vector2(1653.0, 721.0)
 			and turn_action.size == Vector2(256.0, 256.0),
 			"%s no construye el botón gráfico FIN DE TURNO" % character_id
 		)
@@ -371,7 +389,7 @@ func _run() -> void:
 		) as Label
 		var reward_skip := combat.get_node_or_null(
 			"Presentation/ModalContent/RewardSkipButton"
-		) as Button
+		) as TextureButton
 		_expect(
 			reward_mat != null
 			and reward_mat.texture != null
@@ -388,8 +406,11 @@ func _run() -> void:
 			"%s no integra el título en la cartela superior" % character_id
 		)
 		_expect(
-			reward_skip != null and reward_skip.text == "OMITIR",
-			"%s pierde la opción secundaria de omitir recompensa" % character_id
+			reward_skip != null
+			and reward_skip.texture_normal != null
+			and reward_skip.position == REWARD_SKIP_BUTTON_POSITION
+			and reward_skip.size == REWARD_SKIP_BUTTON_SIZE,
+			"%s no integra el botón gráfico OMITIR" % character_id
 		)
 		for reward_index in 3:
 			var reward_card := combat.get_node_or_null(

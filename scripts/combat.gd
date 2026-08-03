@@ -43,9 +43,9 @@ const PLAYER_HP_BAR_COLOR := Color(0.78, 0.08, 0.12, 1.0)
 const PLAYER_BLOCK_BAR_COLOR := Color(0.34, 0.47, 0.60, 1.0)
 const PLAYER_BAR_BACKGROUND_COLOR := Color(0.035, 0.03, 0.045, 0.96)
 const PLAYER_BAR_HIGHLIGHT_COLOR := Color(1.0, 1.0, 1.0, 0.16)
-const DISCARD_BUTTON_POSITION := Vector2(1480.0, 688.0)
+const DISCARD_BUTTON_POSITION := Vector2(1497.0, 976.0)
 const DISCARD_BUTTON_SIZE := Vector2(420.0, 104.0)
-const TURN_BUTTON_POSITION := Vector2(1644.0, 804.0)
+const TURN_BUTTON_POSITION := Vector2(1653.0, 721.0)
 const TURN_BUTTON_SIZE := Vector2(256.0, 256.0)
 const ACTION_BUTTON_HOVER_SCALE := Vector2(1.035, 1.035)
 const ACTION_BUTTON_PRESSED_SCALE := Vector2(0.955, 0.955)
@@ -56,6 +56,8 @@ const REWARD_CARD_SIZE := Vector2(296.0, 444.0)
 const REWARD_CARD_Y := 320.0
 const REWARD_CARD_X_POSITIONS := [405.0, 812.0, 1219.0]
 const REWARD_CARD_HOVER_SCALE := Vector2(1.065, 1.065)
+const REWARD_SKIP_BUTTON_POSITION := Vector2(750.0, 790.0)
+const REWARD_SKIP_BUTTON_SIZE := Vector2(420.0, 104.0)
 
 const PLAYER_HP := {
 	&"juan": 72,
@@ -148,6 +150,9 @@ const DISCARD_BUTTON_TEXTURE := preload(
 )
 const TURN_BUTTON_TEXTURE := preload(
 	"res://assets/ui/combat/boton_fin_turno.png"
+)
+const REWARD_SKIP_BUTTON_TEXTURE := preload(
+	"res://assets/ui/combat/boton_omitir.png"
 )
 
 @onready var background: TextureRect = $Background
@@ -1478,7 +1483,7 @@ func _build_reward_offer() -> void:
 		choice.mouse_exited.connect(_animate_reward_card.bind(choice, false))
 		choice.pressed.connect(_choose_reward.bind(card_id))
 		modal_content.add_child(choice)
-	_add_return_button("OMITIR", Vector2(760, 820), "RewardSkipButton")
+	_add_reward_skip_button()
 
 
 func _animate_reward_card(button: TextureButton, hovered: bool) -> void:
@@ -1510,6 +1515,20 @@ func _choose_reward(card_id: StringName) -> void:
 	GameState.add_reward_card(card_id)
 	hint_label.text = "RECOMPENSA ELEGIDA: %s" % CardCatalog.CARDS[card_id]["name"]
 	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+
+
+func _add_reward_skip_button() -> void:
+	var skip_button := _make_action_texture_button(
+		"RewardSkipButton",
+		REWARD_SKIP_BUTTON_TEXTURE,
+		REWARD_SKIP_BUTTON_POSITION,
+		REWARD_SKIP_BUTTON_SIZE,
+		"OMITIR RECOMPENSA"
+	)
+	skip_button.pressed.connect(
+		func(): get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+	)
+	modal_content.add_child(skip_button)
 
 
 func _add_return_button(
