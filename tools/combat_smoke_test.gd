@@ -315,7 +315,7 @@ func _run() -> void:
 					and absf(player_hud.position.y - 126.0) <= 4.1,
 					"%s permite deriva o saltos erráticos en el HUD" % character_id
 				)
-				var low_position := player_hud.position.y
+				var low_position: float = player_hud.position.y
 				character_sprite.set_frame_and_progress(0, 0.0)
 				combat.call("_sync_player_hud_motion", 1.0)
 				_expect(
