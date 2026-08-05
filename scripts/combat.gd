@@ -2,6 +2,7 @@ extends Control
 
 const CombatantStateScript = preload("res://scripts/combat/combatant_state.gd")
 const CombatDeckScript = preload("res://scripts/combat/combat_deck.gd")
+const EnemyCatalogScript = preload("res://scripts/enemies/enemy_catalog.gd")
 
 const COMBAT_FRAME_SIZE := Vector2i(362, 644)
 const IDLE_FRAME_COUNT := 6
@@ -63,26 +64,8 @@ const PLAYER_HP := {
 	&"juan": 72,
 	&"michu": 60,
 }
-const ENEMY_DEFINITIONS := [
-	{
-		"id": &"tarantula",
-		"name": "TARÁNTULA",
-		"max_hp": 34,
-		"damage": 6,
-		"texture_path": "res://assets/enemies/tarantula.png",
-		"scale": Vector2(0.86, 0.86),
-		"visible_bottom": 482.0,
-	},
-	{
-		"id": &"malleiro",
-		"name": "VAMPIRO MALLEIRO",
-		"max_hp": 30,
-		"damage": 7,
-		"texture_path": "res://assets/enemies/vampiro_malleiro.png",
-		"scale": Vector2(0.66, 0.66),
-		"visible_bottom": 686.0,
-	},
-]
+const ENEMY_DEFINITIONS := EnemyCatalogScript.ENEMIES
+
 
 const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 	"res://assets/backgrounds/combat/bar_interior_01.png",
@@ -92,6 +75,8 @@ const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 const INTERIOR_LAYOUTS := [
 	{
 		"player_feet": Vector2(560, 960),
+		"solo_enemy_feet": Vector2(1350, 720),
+		"pair_enemy_feet": [Vector2(1120, 690), Vector2(1570, 760)],
 		"enemy_feet": {
 			&"tarantula": Vector2(1120, 690),
 			&"malleiro": Vector2(1570, 760),
@@ -101,6 +86,8 @@ const INTERIOR_LAYOUTS := [
 	},
 	{
 		"player_feet": Vector2(530, 975),
+		"solo_enemy_feet": Vector2(1300, 800),
+		"pair_enemy_feet": [Vector2(1080, 800), Vector2(1500, 800)],
 		"enemy_feet": {
 			&"tarantula": Vector2(1080, 800),
 			&"malleiro": Vector2(1500, 800),
@@ -110,6 +97,8 @@ const INTERIOR_LAYOUTS := [
 	},
 	{
 		"player_feet": Vector2(650, 950),
+		"solo_enemy_feet": Vector2(1270, 690),
+		"pair_enemy_feet": [Vector2(1050, 650), Vector2(1450, 690)],
 		"enemy_feet": {
 			&"tarantula": Vector2(1050, 650),
 			&"malleiro": Vector2(1450, 690),
@@ -243,6 +232,12 @@ func _exit_tree() -> void:
 	if background_music != null:
 		background_music.stop()
 		background_music.stream = null
+	for enemy: Dictionary in enemies:
+		var sprite := enemy.get("sprite") as Sprite2D
+		if is_instance_valid(sprite):
+			sprite.texture = null
+	card_texture_cache.clear()
+	energy_states_texture = null
 
 
 func _configure_music_loop() -> void:
@@ -267,16 +262,43 @@ func _prepare_combat_state() -> void:
 
 
 func _build_enemies() -> void:
+	var selected_enemy_ids: Array[StringName] = (
+		GameState.pending_encounter.duplicate()
+	)
+	if selected_enemy_ids.is_empty():
+		selected_enemy_ids = EnemyCatalogScript.generate_encounter(
+			maxi(GameState.current_route_step + 1, 0),
+			GameState.run_seed,
+			GameState.route_node_id(
+				maxi(GameState.current_route_step + 1, 0),
+				maxi(GameState.pending_route_branch, 0)
+			)
+		)
+		GameState.set_pending_encounter(selected_enemy_ids)
+
 	var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
-	var enemy_feet: Dictionary = layout["enemy_feet"]
-	for definition: Dictionary in ENEMY_DEFINITIONS:
-		var state: CombatantState = CombatantStateScript.new(definition["max_hp"])
+	for enemy_index in selected_enemy_ids.size():
+		var enemy_id: StringName = selected_enemy_ids[enemy_index]
+		if not ENEMY_DEFINITIONS.has(enemy_id):
+			push_error("Enemigo desconocido: %s" % enemy_id)
+			continue
+
+		var definition: Dictionary = ENEMY_DEFINITIONS[enemy_id]
+		var state: CombatantState = CombatantStateScript.new(
+			definition["max_hp"]
+		)
 		var sprite := Sprite2D.new()
 		sprite.texture = _load_texture(definition["texture_path"])
 		if sprite.texture == null:
 			continue
 		sprite.scale = definition["scale"]
-		var feet_position: Vector2 = enemy_feet[definition["id"]]
+
+		var feet_position: Vector2 = layout["solo_enemy_feet"]
+		if selected_enemy_ids.size() > 1:
+			var pair_slots: Array = layout["pair_enemy_feet"]
+			feet_position = pair_slots[
+				mini(enemy_index, pair_slots.size() - 1)
+			]
 		sprite.position = _center_sprite_on_feet(
 			sprite.texture,
 			sprite.scale,
@@ -289,6 +311,7 @@ func _build_enemies() -> void:
 			"id": definition["id"],
 			"name": definition["name"],
 			"damage": definition["damage"],
+			"currency": definition["currency"],
 			"state": state,
 			"sprite": sprite,
 			"bounds": Rect2(),
@@ -298,7 +321,8 @@ func _build_enemies() -> void:
 		enemies.append(enemy)
 		_update_enemy_bounds(enemies.size() - 1)
 
-
+	if enemies.is_empty():
+		push_error("El encuentro no contiene enemigos cargables")
 func _configure_foreground() -> void:
 	var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
 	var foreground_path: String = layout["foreground_path"]
@@ -1398,8 +1422,18 @@ func set_energy(value: int) -> void:
 func _finish_combat(victory: bool) -> void:
 	combat_finished = true
 	_reset_card_interaction()
-	if victory:
-		GameState.run_hp = player.hp
+	if not victory:
+		GameState.reset_run()
+		get_tree().change_scene_to_file("res://scenes/main.tscn")
+		return
+
+	GameState.run_hp = player.hp
+	GameState.add_currency(
+		EnemyCatalogScript.encounter_currency(
+			GameState.pending_encounter
+		)
+	)
+	GameState.complete_pending_destination()
 	turn_button.disabled = true
 	_refresh_action_button_visual(turn_button)
 	discard_button.disabled = true
@@ -1412,23 +1446,7 @@ func _finish_combat(victory: bool) -> void:
 		0.015, 0.008, 0.02, 0.46 if victory else 0.82
 	)
 	modal_content.add_child(shade)
-	if victory:
-		_build_reward_offer()
-	else:
-		var result := _make_label(
-			Vector2(420, 310), Vector2(1080, 150), 58, Color(0.9, 0.22, 0.19)
-		)
-		result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		result.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		result.text = "HAS CAÍDO"
-		modal_content.add_child(result)
-		var detail := _make_label(
-			Vector2(500, 470), Vector2(920, 90), 19, Color(0.92, 0.86, 0.78)
-		)
-		detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		detail.text = "VUELVE AL MAPA PARA INTENTARLO DE NUEVO"
-		modal_content.add_child(detail)
-		_add_return_button("VOLVER AL MAPA", Vector2(760, 610))
+	_build_reward_offer()
 
 
 func _build_reward_offer() -> void:
