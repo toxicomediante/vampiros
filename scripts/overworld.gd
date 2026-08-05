@@ -446,6 +446,14 @@ func _travel_to_location(location: Node2D) -> void:
 		location_kind,
 		tavern_variant
 	)
+	if location_kind != &"trujillo":
+		GameState.set_pending_encounter(
+			EnemyCatalog.generate_encounter(
+				step_index,
+				GameState.run_seed,
+				GameState.route_node_id(step_index, branch_index)
+			)
+		)
 
 	journey_label.text = (
 		"ENTRANDO EN SUPERMERCADOS TRUJILLO..."
