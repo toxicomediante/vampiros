@@ -40,7 +40,7 @@ static func generate_encounter(
 		var definition: Dictionary = ENEMIES[enemy_id]
 		if int(definition["tier"]) <= _maximum_tier(route_step):
 			available.append(enemy_id)
-	available.shuffle()
+	_shuffle_with_rng(available, rng)
 
 	if available.is_empty():
 		return []
@@ -58,6 +58,17 @@ static func generate_encounter(
 	for index in mini(encounter_size, available.size()):
 		encounter.append(available[index])
 	return encounter
+
+
+static func _shuffle_with_rng(
+	values: Array[StringName],
+	rng: RandomNumberGenerator
+) -> void:
+	for index in range(values.size() - 1, 0, -1):
+		var swap_index := rng.randi_range(0, index)
+		var value := values[index]
+		values[index] = values[swap_index]
+		values[swap_index] = value
 
 
 static func encounter_currency(enemy_ids: Array[StringName]) -> int:
