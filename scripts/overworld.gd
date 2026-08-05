@@ -141,8 +141,11 @@ func _move_camera_from_drag(vertical_delta: float) -> void:
 	)
 
 func _generate_route() -> void:
+	GameState.ensure_run()
+	GameState.ensure_route(STEP_POSITIONS, START_POSITION, CASTLE_POSITION)
 	_draw_connections()
 	route_locations.clear()
+
 	var tavern_textures: Array[Texture2D] = []
 	for texture_path: String in TAVERN_PATHS:
 		var texture := _load_texture(texture_path)
@@ -151,51 +154,50 @@ func _generate_route() -> void:
 	if tavern_textures.size() != TAVERN_PATHS.size():
 		push_error("No se pudieron cargar todas las tabernas del mapa")
 		return
+
 	var pub_meigas := _load_texture(PUB_MEIGAS_PATH)
-	var supermercados_trujillo := _load_texture(SUPERMERCADOS_TRUJILLO_PATH)
+	var supermercados_trujillo := _load_texture(
+		SUPERMERCADOS_TRUJILLO_PATH
+	)
 	if pub_meigas == null or supermercados_trujillo == null:
 		return
 
-	var node_count := 0
-	for step in STEP_POSITIONS:
-		node_count += step.size()
-	# El primer paso forma parte del vertical slice de taberna y combate. Los
-	# locales especiales apareceran mas adelante en la ruta.
-	var special_nodes := range(STEP_POSITIONS[0].size(), node_count)
-	special_nodes.shuffle()
-	var meigas_node: int = special_nodes[0]
-	var trujillo_node: int = special_nodes[1]
-
-	var node_index := 0
 	for step_index in STEP_POSITIONS.size():
 		var step_locations: Array[Node2D] = []
+		var step_blueprint: Array = GameState.run_route_nodes[step_index]
 		for branch_index in STEP_POSITIONS[step_index].size():
-			var tavern_variant := randi_range(0, tavern_textures.size() - 1)
-			var building_texture: Texture2D = tavern_textures[tavern_variant]
-			var location_kind := "tavern"
-			if node_index == meigas_node:
+			var node_blueprint: Dictionary = step_blueprint[branch_index]
+			var location_kind: StringName = node_blueprint["kind"]
+			var tavern_variant := int(node_blueprint["tavern_variant"])
+			var building_texture: Texture2D = tavern_textures[
+				tavern_variant
+			]
+			if location_kind == &"meigas":
 				building_texture = pub_meigas
-				location_kind = "meigas"
-			elif node_index == trujillo_node:
+			elif location_kind == &"trujillo":
 				building_texture = supermercados_trujillo
-				location_kind = "trujillo"
 
 			var location := Node2D.new()
-			location.name = "Step%02dNode%02d" % [step_index + 1, branch_index + 1]
+			location.name = "Step%02dNode%02d" % [
+				step_index + 1,
+				branch_index + 1,
+			]
 			location.position = STEP_POSITIONS[step_index][branch_index]
+			location.set_meta("route_step", step_index)
+			location.set_meta("route_branch", branch_index)
 			location.set_meta("location_kind", location_kind)
 			location.set_meta("tavern_variant", tavern_variant)
 			$RouteBuildings.add_child(location)
 			step_locations.append(location)
 
-			if location_kind == "tavern" or location_kind == "trujillo":
+			if location_kind == &"tavern" or location_kind == &"trujillo":
 				_add_glow(
 					location.position + Vector2(0, 18),
 					warm_glow_texture,
 					Vector2(1.38, 1.08),
 					0.0
 				)
-			elif location_kind == "meigas":
+			elif location_kind == &"meigas":
 				_add_glow(
 					location.position + Vector2(-64, 4),
 					meigas_pink_glow_texture,
@@ -215,7 +217,6 @@ func _generate_route() -> void:
 			building.scale = LOCATION_SCALE
 			building.z_index = 2
 			location.add_child(building)
-			node_index += 1
 		route_locations.append(step_locations)
 
 func _prepare_character() -> void:
@@ -225,12 +226,33 @@ func _prepare_character() -> void:
 	var sheet := _load_texture(CHARACTER_SHEET_PATHS[character_id])
 	if sheet == null:
 		return
-	character_sprite.sprite_frames = _build_character_frames(sheet, character_id)
+	character_sprite.sprite_frames = _build_character_frames(
+		sheet,
+		character_id
+	)
 	character_sprite.flip_h = false
 	character_sprite.play(&"idle")
-	character_root.position = START_POSITION
-	var start_scale := _perspective_scale(START_POSITION.y)
-	character_root.scale = Vector2.ONE * start_scale
+	character_root.position = _current_character_position()
+	var current_scale := _perspective_scale(character_root.position.y)
+	character_root.scale = Vector2.ONE * current_scale
+
+
+func _current_character_position() -> Vector2:
+	var step_index := GameState.current_route_step
+	var branch_index := GameState.current_route_branch
+	if (
+		step_index >= 0
+		and step_index < route_locations.size()
+		and branch_index >= 0
+		and branch_index < route_locations[step_index].size()
+	):
+		return (
+			route_locations[step_index][branch_index].position
+			+ DESTINATION_OFFSET
+		)
+	if step_index >= route_locations.size() and not route_locations.is_empty():
+		return CASTLE_POSITION + DESTINATION_OFFSET
+	return START_POSITION
 
 func _load_texture(resource_path: String) -> Texture2D:
 	var texture := load(resource_path) as Texture2D
@@ -290,36 +312,81 @@ func _try_select_first_destination(screen_position: Vector2) -> void:
 		return
 
 	var world_position := get_canvas_transform().affine_inverse() * screen_position
+	if GameState.castle_is_next():
+		if (
+			world_position.distance_squared_to(CASTLE_POSITION)
+			<= LOCATION_SELECTION_RADIUS * LOCATION_SELECTION_RADIUS
+		):
+			_travel_to_castle()
+		return
+
 	var closest_location: Node2D
 	var closest_distance := INF
-	for location: Node2D in route_locations[0]:
+	for location: Node2D in _available_destination_nodes():
 		var distance := world_position.distance_squared_to(location.position)
 		if distance < closest_distance:
 			closest_location = location
 			closest_distance = distance
 
-	if closest_location != null and closest_distance <= LOCATION_SELECTION_RADIUS * LOCATION_SELECTION_RADIUS:
+	if (
+		closest_location != null
+		and closest_distance
+		<= LOCATION_SELECTION_RADIUS * LOCATION_SELECTION_RADIUS
+	):
 		_travel_to_location(closest_location)
+
+
+func _available_destination_nodes() -> Array[Node2D]:
+	var available: Array[Node2D] = []
+	var step_index := GameState.next_route_step()
+	if step_index < 0 or step_index >= route_locations.size():
+		return available
+	for branch_index: int in GameState.next_route_branches():
+		if branch_index >= 0 and branch_index < route_locations[step_index].size():
+			available.append(route_locations[step_index][branch_index])
+	return available
+
 
 func _enable_first_destination_choice() -> void:
 	if route_locations.is_empty():
 		return
 	route_choice_enabled = true
-	for location: Node2D in route_locations[0]:
+	if GameState.castle_is_next():
+		journey_label.text = "TOCA EL CASTILLO PARA CONTINUAR"
+		journey_label.modulate.a = 1.0
+		return
+
+	for location: Node2D in _available_destination_nodes():
 		var building: Sprite2D = location.get_node("Building")
 		var pulse := create_tween().set_loops()
 		pulse.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		pulse.tween_property(building, "scale", LOCATION_SCALE * 1.06, 0.72)
-		pulse.parallel().tween_property(building, "modulate", Color(1.16, 1.12, 1.02, 1.0), 0.72)
+		pulse.tween_property(
+			building,
+			"scale",
+			LOCATION_SCALE * 1.06,
+			0.72
+		)
+		pulse.parallel().tween_property(
+			building,
+			"modulate",
+			Color(1.16, 1.12, 1.02, 1.0),
+			0.72
+		)
 		pulse.tween_property(building, "scale", LOCATION_SCALE, 0.72)
-		pulse.parallel().tween_property(building, "modulate", Color.WHITE, 0.72)
+		pulse.parallel().tween_property(
+			building,
+			"modulate",
+			Color.WHITE,
+			0.72
+		)
 		location.set_meta("choice_pulse", pulse)
+
 
 func _disable_first_destination_choice() -> void:
 	route_choice_enabled = false
-	if route_locations.is_empty():
+	if route_locations.is_empty() or GameState.castle_is_next():
 		return
-	for location: Node2D in route_locations[0]:
+	for location: Node2D in _available_destination_nodes():
 		var pulse = location.get_meta("choice_pulse", null)
 		if pulse is Tween:
 			pulse.kill()
@@ -327,6 +394,7 @@ func _disable_first_destination_choice() -> void:
 		var building: Sprite2D = location.get_node("Building")
 		building.scale = LOCATION_SCALE
 		building.modulate = Color.WHITE
+
 
 func _travel_to_location(location: Node2D) -> void:
 	character_moving = true
@@ -337,7 +405,7 @@ func _travel_to_location(location: Node2D) -> void:
 
 	var destination := location.position + DESTINATION_OFFSET
 	character_sprite.flip_h = destination.x < character_root.position.x
-	journey_label.text = "RUMBO AL PRIMER LOCAL..."
+	journey_label.text = "RUMBO AL SIGUIENTE LOCAL..."
 	journey_label.modulate.a = 1.0
 
 	await _play_character_transition(&"volteo")
@@ -347,7 +415,12 @@ func _travel_to_location(location: Node2D) -> void:
 	var destination_scale := _perspective_scale(destination.y)
 	var travel := create_tween().set_parallel(true)
 	travel.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
-	travel.tween_property(character_root, "position", destination, travel_duration)
+	travel.tween_property(
+		character_root,
+		"position",
+		destination,
+		travel_duration
+	)
 	travel.tween_property(
 		character_root,
 		"scale",
@@ -359,26 +432,84 @@ func _travel_to_location(location: Node2D) -> void:
 	await _play_character_transition(&"volteo2")
 	character_sprite.flip_h = false
 	character_sprite.play(&"idle")
-	journey_label.text = "ENTRANDO EN LA TABERNA..."
+
+	var location_kind: StringName = location.get_meta(
+		"location_kind",
+		&"tavern"
+	)
+	var step_index := int(location.get_meta("route_step", -1))
+	var branch_index := int(location.get_meta("route_branch", -1))
+	var tavern_variant := int(location.get_meta("tavern_variant", 0))
+	GameState.begin_route_destination(
+		step_index,
+		branch_index,
+		location_kind,
+		tavern_variant
+	)
+
+	journey_label.text = (
+		"ENTRANDO EN SUPERMERCADOS TRUJILLO..."
+		if location_kind == &"trujillo"
+		else "ENTRANDO EN EL LOCAL..."
+	)
 	journey_label.modulate.a = 1.0
-	GameState.select_combat_interior(int(location.get_meta("tavern_variant", 0)))
 
 	var enter_interior := create_tween()
 	enter_interior.tween_interval(0.35)
 	enter_interior.tween_property(curtain, "color:a", 1.0, 0.55)
 	await enter_interior.finished
+
+	# La escena específica de Trujillo se conectará cuando incorporemos su
+	# paquete definitivo. Mientras la actualización está en su rama de trabajo,
+	# la navegación conserva el destino pendiente sin reiniciar la ruta.
 	var change_error := get_tree().change_scene_to_file(
 		"res://scenes/combat_loader.tscn"
 	)
 	if change_error != OK:
-		push_error("No se pudo abrir el cargador de combate: %d" % change_error)
-		journey_label.text = "NO SE PUDO ENTRAR EN LA TABERNA"
+		push_error("No se pudo abrir el siguiente local: %d" % change_error)
+		journey_label.text = "NO SE PUDO ENTRAR EN EL LOCAL"
 		var recover := create_tween()
 		recover.tween_property(curtain, "color:a", 0.0, 0.35)
 		await recover.finished
 		character_moving = false
 		map_navigation_enabled = true
 		_enable_first_destination_choice()
+
+
+func _travel_to_castle() -> void:
+	character_moving = true
+	map_navigation_enabled = false
+	mouse_dragging = false
+	touch_tracking = false
+	_disable_first_destination_choice()
+
+	var destination := CASTLE_POSITION + DESTINATION_OFFSET
+	character_sprite.flip_h = destination.x < character_root.position.x
+	journey_label.text = "EL CASTILLO AGUARDA..."
+	journey_label.modulate.a = 1.0
+
+	await _play_character_transition(&"volteo")
+	character_sprite.play(&"caminar")
+	var travel := create_tween().set_parallel(true)
+	travel.set_trans(Tween.TRANS_LINEAR).set_ease(Tween.EASE_IN_OUT)
+	travel.tween_property(character_root, "position", destination, 2.2)
+	travel.tween_property(
+		character_root,
+		"scale",
+		Vector2.ONE * _perspective_scale(destination.y),
+		2.2
+	)
+	await travel.finished
+	GameState.complete_castle_destination()
+
+	var fade := create_tween()
+	fade.tween_property(curtain, "color:a", 1.0, 0.65)
+	await fade.finished
+	var change_error := get_tree().change_scene_to_file(
+		"res://scenes/coming_soon.tscn"
+	)
+	if change_error != OK:
+		push_error("No se pudo abrir la escena Próximamente: %d" % change_error)
 
 func _play_character_transition(animation_name: StringName) -> void:
 	character_sprite.play(animation_name)
@@ -434,62 +565,70 @@ func _add_glow(
 	pulse.parallel().tween_property(glow, "modulate:a", 0.86, 1.65)
 
 func _draw_connections() -> void:
-	_connect_layers([START_POSITION], STEP_POSITIONS[0])
-	for step_index in STEP_POSITIONS.size() - 1:
-		_connect_layers(STEP_POSITIONS[step_index], STEP_POSITIONS[step_index + 1])
-	_connect_layers(STEP_POSITIONS[-1], [CASTLE_POSITION])
+	var layer_positions: Array = []
+	layer_positions.append([START_POSITION])
+	for step: Array in STEP_POSITIONS:
+		layer_positions.append(step)
+	layer_positions.append([CASTLE_POSITION])
 
-func _connect_layers(from_nodes: Array, to_nodes: Array) -> void:
-	var connections := {}
-	for from_index in from_nodes.size():
-		var nearest_to := _nearest_index(from_nodes[from_index], to_nodes)
-		connections[Vector2i(from_index, nearest_to)] = true
-	for to_index in to_nodes.size():
-		var nearest_from := _nearest_index(to_nodes[to_index], from_nodes)
-		connections[Vector2i(nearest_from, to_index)] = true
+	for layer_index in GameState.run_route_connections.size():
+		var from_nodes: Array = layer_positions[layer_index]
+		var to_nodes: Array = layer_positions[layer_index + 1]
+		var layer: Dictionary = GameState.run_route_connections[layer_index]
+		for from_index in layer:
+			for to_index: int in layer[from_index]:
+				_draw_connection(
+					from_nodes[int(from_index)],
+					to_nodes[to_index]
+				)
 
-	# Una unión extra ocasional produce rutas menos simétricas sin crear callejones.
-	if from_nodes.size() > 1 and to_nodes.size() > 1 and randf() < 0.7:
-		connections[Vector2i(randi_range(0, from_nodes.size() - 1), randi_range(0, to_nodes.size() - 1))] = true
 
-	for connection in connections:
-		var path := Line2D.new()
-		path.name = "Route"
-		path.width = 12.0
-		path.default_color = Color(0.94, 0.67, 0.34, 0.82)
-		path.antialiased = false
-		path.z_index = 1
-		path.add_point(from_nodes[connection.x])
-		path.add_point(to_nodes[connection.y])
-		$RouteLines.add_child(path)
-
-func _nearest_index(origin: Vector2, candidates: Array) -> int:
-	var nearest := 0
-	var nearest_distance := INF
-	for candidate_index in candidates.size():
-		var distance: float = origin.distance_squared_to(candidates[candidate_index])
-		if distance < nearest_distance:
-			nearest = candidate_index
-			nearest_distance = distance
-	return nearest
+func _draw_connection(from_position: Vector2, to_position: Vector2) -> void:
+	var path := Line2D.new()
+	path.name = "Route"
+	path.width = 12.0
+	path.default_color = Color(0.94, 0.67, 0.34, 0.82)
+	path.antialiased = false
+	path.z_index = 1
+	path.add_point(from_position)
+	path.add_point(to_position)
+	$RouteLines.add_child(path)
 
 func _play_map_intro() -> void:
 	var reveal := create_tween().set_parallel(true)
 	reveal.tween_property(curtain, "color:a", 0.0, 0.8)
-	reveal.tween_property(journey_label, "modulate:a", 1.0, 0.8).set_delay(0.25)
+	reveal.tween_property(
+		journey_label,
+		"modulate:a",
+		1.0,
+		0.8
+	).set_delay(0.25)
 	await reveal.finished
 
-	var pan := create_tween()
-	pan.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	pan.tween_property(camera, "position:y", DEPARTURE_CAMERA_Y, PAN_DURATION)
-	await pan.finished
+	if GameState.current_route_step < 0:
+		var pan := create_tween()
+		pan.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		pan.tween_property(
+			camera,
+			"position:y",
+			DEPARTURE_CAMERA_Y,
+			PAN_DURATION
+		)
+		await pan.finished
+	else:
+		camera.position.y = clampf(
+			character_root.position.y,
+			MIN_CAMERA_Y,
+			MAX_CAMERA_Y
+		)
 
 	var finish := create_tween()
-	finish.tween_property(journey_label, "modulate:a", 0.0, 0.55)
+	finish.tween_property(journey_label, "modulate:a", 0.0, 0.35)
 	await finish.finished
 	map_navigation_enabled = true
 	_enable_first_destination_choice()
-	journey_label.text = "TOCA UN LOCAL PARA CAMINAR"
+	if not GameState.castle_is_next():
+		journey_label.text = "TOCA UN LOCAL PARA CAMINAR"
 	var hint := create_tween()
 	hint.tween_property(journey_label, "modulate:a", 1.0, 0.35)
 	hint.tween_interval(3.2)
