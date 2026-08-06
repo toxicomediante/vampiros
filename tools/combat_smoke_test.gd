@@ -1,5 +1,6 @@
 extends SceneTree
 
+const EnemyCatalogScript = preload("res://scripts/enemies/enemy_catalog.gd")
 const COMBAT_SCENE_PATH := "res://scenes/combat.tscn"
 const CHARACTER_IDS := [&"michu", &"juan"]
 const BACKGROUND_SOURCE_SIZE := Vector2(1672, 941)
