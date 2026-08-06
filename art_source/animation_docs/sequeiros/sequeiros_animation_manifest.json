@@ -19,28 +19,63 @@
       "frames": 8,
       "fps": 6,
       "loop": true,
-      "bridge_frames": [
+      "secondary_motion": "restrained body sway; beer and foam counter-slosh inside the upright mug",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
         0,
         3,
         5,
         7
       ],
-      "secondary_motion": "restrained body sway; beer and foam counter-slosh inside the upright mug"
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        2,
+        4,
+        4,
+        6,
+        6
+      ]
     },
     "attack": {
       "file": "sequeiros_attack_atlas.png",
       "frames": 8,
       "fps": 9,
       "loop": false,
-      "start_bridge_frame": 0,
-      "end_bridge_frame": 7,
       "direction": "screen-left",
       "action": "short heavy shoulder/body-check while preserving the beer mug",
-      "secondary_motion": "foam lags right on acceleration, overshoots left on impact, crosses right and damps before rest"
+      "secondary_motion": "foam lags right on acceleration, overshoots left on impact, crosses right and damps before rest",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "transition": {
-    "idle_to_attack": "Queue attack and start it on idle bridge frame 0, 3, 5 or 7; attack frame 0 is pixel-identical to animation_base.",
-    "attack_to_idle": "When attack frame 7 finishes, resume idle at frame 0; both are pixel-identical to animation_base."
+    "idle_to_attack": "Play attack from frame 0; the fixed 8-frame timing is preserved.",
+    "attack_to_idle": "After attack frame 7, resume idle; neither atlas contains animation_base."
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
   }
 }

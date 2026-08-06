@@ -1,8 +1,14 @@
 {
   "enemy": "Momia",
   "format": "RGBA8 PNG sprite atlas",
-  "frame_size": [543, 724],
-  "atlas_size": [2172, 1448],
+  "frame_size": [
+    543,
+    724
+  ],
+  "atlas_size": [
+    2172,
+    1448
+  ],
   "layout": {
     "columns": 4,
     "rows": 2,
@@ -23,8 +29,21 @@
       "recommended_fps": 6,
       "sequence": "closed wobble, weight shift, small hop, door fake-out, recovery, closed",
       "door_rule": "ajar without revealing the mummy",
-      "bridge_frames": [0, 7],
-      "bridge_matches_animation_base": true
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     },
     "attack": {
       "file": "momia_attack_atlas.png",
@@ -32,10 +51,26 @@
       "recommended_fps": 9,
       "direction": "screen-left",
       "sequence": "closed, ajar, partial opening, supplied open keyframe, physical claw strike, supplied open keyframe, partial closing, closed",
-      "supplied_open_keyframes": [3, 5],
+      "supplied_open_keyframes": [
+        3,
+        5
+      ],
       "impact_frame": 4,
-      "bridge_frames": [0, 7],
-      "bridge_matches_animation_base": true
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "integration": {
@@ -44,10 +79,21 @@
     "pixel_filtering": "nearest"
   },
   "validation": {
-    "extreme_frame_pixel_difference": 0,
     "transparent_corners": true,
     "chroma_residue": 0,
-    "alpha_review_backgrounds": ["black", "white", "dark red"],
-    "cropped_frames": 0
+    "alpha_review_backgrounds": [
+      "black",
+      "white",
+      "dark red"
+    ],
+    "cropped_frames": 0,
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
   }
 }

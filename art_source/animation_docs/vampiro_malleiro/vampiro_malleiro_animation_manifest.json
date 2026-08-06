@@ -21,9 +21,20 @@
       "frames": 8,
       "fps": 7,
       "loop": true,
-      "bridge_frames": [
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
         0,
         7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
       ]
     },
     "attack": {
@@ -32,18 +43,28 @@
       "fps": 10,
       "loop": false,
       "direction": "screen_left",
-      "bridge_frames": [
+      "return_to": "idle:0",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
         0,
         7
       ],
-      "return_to": "idle:0"
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "animation_base": "vampiro_malleiro_animation_base.png",
   "transition_contract": {
-    "idle_to_attack": "Queue the attack until idle reaches bridge frame 0 or 7, then play attack from frame 0.",
-    "attack_to_idle": "When attack frame 7 finishes, switch directly to idle frame 0.",
-    "pixel_difference_at_all_bridge_frames": 0
+    "idle_to_attack": "Play attack from frame 0; the fixed 8-frame timing is preserved.",
+    "attack_to_idle": "After attack frame 7, resume idle; neither atlas contains animation_base."
   },
   "import_notes": {
     "godot_filter": false,
@@ -55,5 +76,16 @@
   "alpha_corrections": {
     "animation_base": "2:1 premultiplied BOX reduction from native alpha",
     "atlases": "frames 0 and 7 replaced; white matte removed locally from glasses"
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
   }
 }

@@ -29,6 +29,21 @@
         5,
         6,
         7
+      ],
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
       ]
     },
     "attack": {
@@ -44,7 +59,22 @@
         6,
         7
       ],
-      "direction": "screen-left"
+      "direction": "screen-left",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "transition_contract": {
@@ -78,6 +108,15 @@
       "suspicious_magenta_pixels": 0,
       "near_white_visible_pixels": 8
     },
-    "no_cell_edge_contact": true
+    "no_cell_edge_contact": true,
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
   }
 }

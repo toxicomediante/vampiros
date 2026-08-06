@@ -18,7 +18,23 @@
       "frames": 8,
       "fps": 6,
       "loop": true,
-      "order": "left-to-right, top row then bottom row"
+      "order": "left-to-right, top row then bottom row",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        5
+      ]
     },
     "attack": {
       "file": "pareja_gaitero_dragon_attack_atlas.png",
@@ -27,18 +43,40 @@
       "loop": false,
       "direction": "left",
       "attacker": "chica_dragon",
-      "order": "left-to-right, top row then bottom row"
+      "order": "left-to-right, top row then bottom row",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "animation_base": "pareja_gaitero_dragon_animation_base.png",
-  "bridge_frames": {
-    "idle": [0, 7],
-    "attack": [0, 7]
-  },
   "impact_frame": 3,
   "impact_note": "El gaitero del fotograma de impacto es una copia directa del animation_base y permanece anclado; la chica dragón se compone por delante.",
   "godot": {
     "texture_filter": "nearest",
     "mipmaps": false
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
   }
 }

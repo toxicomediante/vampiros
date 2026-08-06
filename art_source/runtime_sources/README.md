@@ -12,3 +12,8 @@ En los enemigos y el NPC de Trujillo se conservan aquí tanto la base maestra
 como los atlas finales. Godot solo recibe en `assets/` los atlas que reproduce;
 las bases permanecen disponibles para crear animaciones futuras sin engordar
 el paquete Web con imágenes que ninguna escena dibuja.
+
+Los atlas de enemigos no incluyen copias de `base.png`. Los antiguos
+fotogramas estáticos de enlace se sustituyeron por fotogramas animados ya
+existentes, conservando la cuadrícula 4×2 y los ocho tiempos que usa el combate.
+La corrección no mezcla, recolorea, interpola ni deforma ningún píxel.

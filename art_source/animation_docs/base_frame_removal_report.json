@@ -1,0 +1,386 @@
+{
+  "tarantula": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        5
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "vampiro_malleiro": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "el_fregona": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        5
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "momia": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "pavo_white_label": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        3,
+        5,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        2,
+        4,
+        4,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "sequeiros": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        3,
+        5,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        2,
+        4,
+        4,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "el_futbolin": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        3,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        2,
+        4,
+        5,
+        5,
+        5
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "media_croqueta": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "pimiento_infernal": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "pareja_gaitero_dragon": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        5
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  },
+  "la_mamona": {
+    "idle": {
+      "removed_base_frame_indices": [
+        0,
+        4,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        3,
+        5,
+        6,
+        6
+      ]
+    },
+    "attack": {
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
+    }
+  }
+}

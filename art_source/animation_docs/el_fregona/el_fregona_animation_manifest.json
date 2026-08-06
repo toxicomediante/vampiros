@@ -19,21 +19,60 @@
       "frames": 8,
       "fps": 6,
       "loop": true,
-      "bridge_frames": [0, 6, 7]
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        5,
+        5
+      ]
     },
     "attack": {
       "file": "el_fregona_attack_atlas.png",
       "frames": 8,
       "fps": 9,
       "loop": false,
-      "start_bridge_frame": 0,
-      "end_bridge_frame": 7,
       "direction": "screen-left",
-      "weapon": "mop"
+      "weapon": "mop",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "transition": {
-    "idle_to_attack": "Queue the attack and start it when idle reaches bridge frame 6, 7 or 0; attack frame 0 is pixel-identical to animation_base.",
-    "attack_to_idle": "When attack frame 7 finishes, resume idle at frame 0; both frames are pixel-identical to animation_base."
+    "idle_to_attack": "Play attack from frame 0; the fixed 8-frame timing is preserved.",
+    "attack_to_idle": "After attack frame 7, resume idle; neither atlas contains animation_base."
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
   }
 }

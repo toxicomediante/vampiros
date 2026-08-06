@@ -19,30 +19,54 @@
       "frames": 8,
       "fps": 5,
       "loop": true,
-      "bridge_frames": [
+      "action": "heavy ceremonial breathing with cloth and staff-chain secondary motion",
+      "supernatural_effect": "crimson eyes and rubies pulse from off to dim to peak and back",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
         0,
         4,
         7
       ],
-      "action": "heavy ceremonial breathing with cloth and staff-chain secondary motion",
-      "supernatural_effect": "crimson eyes and rubies pulse from off to dim to peak and back"
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        3,
+        5,
+        6,
+        6
+      ]
     },
     "attack": {
       "file": "la_mamona_attack_atlas.png",
       "frames": 8,
       "fps": 9,
       "loop": false,
-      "start_bridge_frame": 0,
-      "end_bridge_frame": 7,
       "direction": "screen-left",
       "action": "two-handed diagonal physical staff strike from upper-right to lower-left",
       "secondary_motion": "hair, heavy sleeves, skirt and staff chains lag, overshoot and settle independently",
-      "supernatural_effect": "eyes and rubies charge during wind-up, peak at impact and fade through recovery"
+      "supernatural_effect": "eyes and rubies charge during wind-up, peak at impact and fade through recovery",
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
+      ]
     }
   },
   "transition": {
-    "idle_to_attack": "Queue attack on idle bridge frame 0, 4 or 7; attack frame 0 is pixel-identical to animation_base.",
-    "attack_to_idle": "After attack frame 7, resume idle frame 0; both are pixel-identical to animation_base."
+    "idle_to_attack": "Play attack from frame 0; the fixed 8-frame timing is preserved.",
+    "attack_to_idle": "After attack frame 7, resume idle; neither atlas contains animation_base."
   },
   "alpha": {
     "source_fix": "binary-alpha white halo reconstructed only on the outer contour before animation work",
@@ -51,5 +75,16 @@
       "#761018",
       "#f5f5f5"
     ]
+  },
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
   }
 }

@@ -17,7 +17,24 @@
       "atlas": "el_futbolin_idle_atlas.png",
       "frames": 8,
       "fps": 7,
-      "loop": true
+      "loop": true,
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        3,
+        6,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        2,
+        4,
+        5,
+        5,
+        5
+      ]
     },
     "attack": {
       "atlas": "el_futbolin_attack_atlas.png",
@@ -30,10 +47,36 @@
         3,
         4,
         5
+      ],
+      "contains_animation_base_frames": false,
+      "removed_base_frame_indices": [
+        0,
+        7
+      ],
+      "frame_source_indices": [
+        1,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        6
       ]
     }
   },
   "direction": "screen_left",
   "layering": "personaje completo redibujado detrás del futbolín; plano inferior bloqueado al maestro",
-  "notes": "Las piernas se han redibujado con escorzo para un plano de suelo posterior. Botas, pantorrillas, faldón y patas de la mesa son idénticos en los 16 frames. El idle acciona las barras de forma contenida. El ataque es un grito con aspavientos y símbolos rojos desplazándose hacia la izquierda durante cuatro frames. Frames 0 y 7 son copias exactas del animation_base."
+  "notes": "Las piernas se han redibujado con escorzo para un plano de suelo posterior. Botas, pantorrillas, faldón y patas de la mesa son idénticos en los 16 frames. El idle acciona las barras de forma contenida. El ataque es un grito con aspavientos y símbolos rojos desplazándose hacia la izquierda durante cuatro frames. Frames 0 y 7 son copias exactas del animation_base.",
+  "base_frame_policy": {
+    "contains_animation_base_frames": false,
+    "method": "static base-derived cells replaced by nearest existing animated frame",
+    "pixel_operations": "copy only; no recolour, interpolation, resize or warp"
+  },
+  "validation": {
+    "contains_animation_base_frames": false,
+    "atlas_grid_preserved": true,
+    "frame_count_preserved": 8,
+    "transparent_corners": true
+  }
 }
