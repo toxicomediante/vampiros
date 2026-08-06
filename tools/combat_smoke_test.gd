@@ -7,7 +7,7 @@ const COMBAT_VIEWPORT_SIZE := Vector2(1920, 1080)
 const INTERIOR_LAYOUTS := [
 	{
 		"player_feet": Vector2(560, 960),
-		"enemy_feet": [Vector2(1120, 690), Vector2(1570, 760)],
+		"enemy_feet": [Vector2(1120, 720), Vector2(1570, 760)],
 		"has_foreground": true,
 		"foreground_source_rect": Rect2(0, 542, 430, 399),
 	},
@@ -19,7 +19,7 @@ const INTERIOR_LAYOUTS := [
 	},
 	{
 		"player_feet": Vector2(650, 950),
-		"enemy_feet": [Vector2(1050, 650), Vector2(1450, 690)],
+		"enemy_feet": [Vector2(1050, 690), Vector2(1450, 720)],
 		"has_foreground": false,
 		"foreground_source_rect": Rect2(),
 	},
