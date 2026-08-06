@@ -489,10 +489,18 @@ func _run() -> void:
 		)
 		for enemy: Dictionary in enemies:
 			var sprite := enemy.get("sprite") as AnimatedSprite2D
+			var enemy_id: StringName = enemy.get("id", &"")
+			var definition: Dictionary = EnemyCatalogScript.definition(enemy_id)
+			var expected_idle_frames := int(
+				definition.get("idle_frame_indices", []).size()
+			)
 			_expect(
 				sprite != null
 				and sprite.sprite_frames != null
-				and sprite.animation == &"idle",
+				and sprite.animation == &"idle"
+				and sprite.sprite_frames.get_animation_loop(&"idle")
+				and sprite.sprite_frames.get_frame_count(&"idle")
+					== expected_idle_frames,
 				"%s construye un enemigo sin animación idle" % character_id
 			)
 

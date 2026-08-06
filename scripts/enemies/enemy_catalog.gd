@@ -15,6 +15,25 @@ const NORMAL_ENEMY_IDS: Array[StringName] = [
 	&"vampiros",
 ]
 
+# The atlas cleanup intentionally kept eight cells per sheet so attack timing and
+# asset dimensions stayed stable. Some removed base cells were filled with an
+# adjacent pose, though, which made idle loops hold on the same image at their
+# seam. These sequences keep only the distinct cyclic poses. Combat redistributes
+# the original cycle duration over them, so the motion has no artificial pause.
+const IDLE_FRAME_SEQUENCES := {
+	&"tarantula": [0, 2, 3, 4],
+	&"vampiro_malleiro": [0, 2, 3, 4, 5, 6],
+	&"el_fregona": [0, 2, 3, 4],
+	&"momia": [0, 2, 3, 4, 5],
+	&"piru_enloquecido": [0, 2, 4, 6],
+	&"sequeiros": [0, 2],
+	&"el_secu": [0, 4],
+	&"media_croqueta": [0, 2, 3, 4, 5, 6],
+	&"pimiento_infernal": [0, 2, 3, 4, 5, 6],
+	&"vampiros": [0, 2, 3, 4],
+	&"la_mamona": [0, 2, 3, 6],
+}
+
 const DEFINITIONS := {
 	&"tarantula": {
 		"name": "TARÁNTULA",
@@ -179,6 +198,7 @@ static func definition(enemy_id: StringName) -> Dictionary:
 		return {}
 	var result: Dictionary = DEFINITIONS[enemy_id].duplicate(true)
 	result["id"] = enemy_id
+	result["idle_frame_indices"] = IDLE_FRAME_SEQUENCES[enemy_id].duplicate()
 	var folder: String = result["asset_folder"]
 	result["idle_path"] = "res://assets/enemies/%s/idle_atlas.png" % folder
 	result["attack_path"] = "res://assets/enemies/%s/attack_atlas.png" % folder

@@ -300,11 +300,19 @@ func _build_enemy_frames(definition: Dictionary) -> SpriteFrames:
 		return null
 	var frames := SpriteFrames.new()
 	frames.remove_animation(&"default")
-	_add_enemy_animation(
-		frames, &"idle", idle_atlas, cell_size, definition["idle_fps"], true
+	var idle_frame_indices: Array = definition["idle_frame_indices"]
+	var idle_fps := (
+		float(definition["idle_fps"])
+		* float(idle_frame_indices.size())
+		/ float(ENEMY_FRAME_COUNT)
 	)
 	_add_enemy_animation(
-		frames, &"attack", attack_atlas, cell_size, definition["attack_fps"], false
+		frames, &"idle", idle_atlas, cell_size, idle_fps, true,
+		idle_frame_indices
+	)
+	_add_enemy_animation(
+		frames, &"attack", attack_atlas, cell_size, definition["attack_fps"], false,
+		range(ENEMY_FRAME_COUNT)
 	)
 	return frames
 
@@ -315,12 +323,13 @@ func _add_enemy_animation(
 	atlas_texture: Texture2D,
 	cell_size: Vector2i,
 	fps: float,
-	looping: bool
+	looping: bool,
+	frame_indices: Array
 ) -> void:
 	frames.add_animation(animation_name)
 	frames.set_animation_loop(animation_name, looping)
 	frames.set_animation_speed(animation_name, fps)
-	for frame_index in ENEMY_FRAME_COUNT:
+	for frame_index: int in frame_indices:
 		var atlas := AtlasTexture.new()
 		atlas.atlas = atlas_texture
 		atlas.region = Rect2i(
