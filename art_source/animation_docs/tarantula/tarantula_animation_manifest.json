@@ -1,0 +1,38 @@
+{
+  "enemy": "tarantula",
+  "format_version": 1,
+  "animation_base": "tarantula_animation_base.png",
+  "cell": {
+    "width": 724,
+    "height": 543,
+    "ground_y": 480,
+    "anchor_x": 362
+  },
+  "atlas": {
+    "columns": 4,
+    "rows": 2,
+    "frame_order": "row-major"
+  },
+  "animations": {
+    "idle": {
+      "file": "tarantula_idle_atlas.png",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "bridge_frames": [0, 6, 7]
+    },
+    "attack": {
+      "file": "tarantula_attack_atlas.png",
+      "frames": 8,
+      "fps": 9,
+      "loop": false,
+      "start_bridge_frame": 0,
+      "end_bridge_frame": 7,
+      "direction": "screen-left"
+    }
+  },
+  "transition": {
+    "idle_to_attack": "Queue the attack and start it when idle reaches bridge frame 6, 7 or 0; attack frame 0 is pixel-identical to animation_base.",
+    "attack_to_idle": "When attack frame 7 finishes, resume idle at frame 0; both frames are pixel-identical to animation_base."
+  }
+}

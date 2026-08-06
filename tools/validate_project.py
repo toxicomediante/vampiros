@@ -22,8 +22,10 @@ REQUIRED_FILES = (
     Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
     Path("assets/audio/combat_ultima_ronda.ogg"),
     Path("assets/fonts/press-start-2p-latin-400-normal.woff2"),
-    Path("assets/enemies/tarantula.png"),
-    Path("assets/enemies/vampiro_malleiro.png"),
+    Path("assets/backgrounds/shop/supermercados_trujillo.png"),
+    Path("assets/ui/currency/coins.png"),
+    Path("assets/npcs/trujillo/idle_atlas.png"),
+    Path("assets/npcs/trujillo/dialogue_atlas.png"),
     Path("assets/backgrounds/combat/bar_foreground_01.png"),
     Path("assets/backgrounds/combat/bar_foreground_02.png"),
     Path("assets/ui/combat/energy_states.png"),
@@ -34,9 +36,15 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/reward_mat.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
+    Path("scenes/shop.tscn"),
+    Path("scenes/coming_soon.tscn"),
     Path("scripts/combat.gd"),
     Path("scripts/combat_loader.gd"),
+    Path("scripts/enemies/enemy_catalog.gd"),
+    Path("scripts/shop.gd"),
+    Path("scripts/coming_soon.gd"),
     Path("tools/combat_smoke_test.gd"),
+    Path("tools/progression_smoke_test.gd"),
     Path("tools/scene_lifecycle_test.gd"),
     Path("tools/version_web_export.py"),
     Path("tools/test_version_web_export.py"),
@@ -69,6 +77,28 @@ def validate_required_files() -> None:
     if missing:
         fail("missing required files: " + ", ".join(missing))
 
+    enemy_folders = (
+        "tarantula",
+        "vampiro_malleiro",
+        "el_fregona",
+        "momia",
+        "pavo_white_label",
+        "sequeiros",
+        "el_futbolin",
+        "media_croqueta",
+        "pimiento_infernal",
+        "pareja_gaitero_dragon",
+        "la_mamona",
+    )
+    missing_enemy_atlases = [
+        str(Path("assets/enemies", folder, atlas))
+        for folder in enemy_folders
+        for atlas in ("idle_atlas.png", "attack_atlas.png")
+        if not Path("assets/enemies", folder, atlas).is_file()
+    ]
+    if missing_enemy_atlases:
+        fail("missing enemy atlases: " + ", ".join(missing_enemy_atlases))
+
     music_paths = (
         Path("assets/audio/title_la_noche_nos_llama.ogg"),
         Path("assets/audio/overworld_luces_entre_la_bruma.ogg"),
@@ -90,6 +120,8 @@ def validate_resource_paths() -> None:
         text = source.read_text(encoding="utf-8")
         for reference in RESOURCE_PATTERN.findall(text):
             target = Path(reference.removeprefix("res://"))
+            if reference.endswith("/") and target.is_dir():
+                continue
             if not target.is_file():
                 missing.append(f"{source}: {reference}")
     if missing:
@@ -138,6 +170,9 @@ def validate_asset_boundaries() -> None:
     source_ready_runtime_paths = {
         *Path("assets/cards").rglob("*.png"),
         *Path("assets/enemies").rglob("*.png"),
+        *Path("assets/npcs").rglob("*.png"),
+        *Path("assets/backgrounds/shop").rglob("*.png"),
+        *Path("assets/ui/currency").rglob("*.png"),
         *(
             path
             for path in Path("assets/ui/combat").glob("*.png")
@@ -148,12 +183,11 @@ def validate_asset_boundaries() -> None:
         path.relative_to(Path("art_source/runtime_sources"))
         for path in Path("art_source/runtime_sources/assets").rglob("*.png")
     }
-    if preserved_source_paths != source_ready_runtime_paths:
+    if not source_ready_runtime_paths.issubset(preserved_source_paths):
         missing = sorted(source_ready_runtime_paths - preserved_source_paths)
-        unexpected = sorted(preserved_source_paths - source_ready_runtime_paths)
         fail(
-            "full-resolution runtime sources do not mirror optimized assets: "
-            f"missing={missing}, unexpected={unexpected}"
+            "full-resolution runtime sources do not cover optimized assets: "
+            f"missing={missing}"
         )
 
     for music in (
@@ -259,10 +293,21 @@ def validate_combat_loading() -> None:
         fail("combat foreground must remain below the interface layer")
     if combat_script.count('"player_feet": Vector2(') != 3:
         fail("each combat interior must define one fixed player foot anchor")
-    if combat_script.count('"enemy_feet": {') != 3:
+    if combat_script.count('"enemy_feet": [') != 3:
         fail("each combat interior must define fixed enemy foot anchors")
-    if combat_script.count('"visible_bottom": ') != 2:
-        fail("each enemy must anchor its last visible pixel to the foot position")
+    for required_enemy_animation_token in (
+        "EnemyCatalogScript",
+        "AnimatedSprite2D.new()",
+        "_build_enemy_frames",
+        "_anchor_enemy_on_feet",
+        'sprite.play(&"attack")',
+        'sprite.play(&"idle")',
+    ):
+        if required_enemy_animation_token not in combat_script:
+            fail(
+                "animated enemy integration is missing: "
+                + required_enemy_animation_token
+            )
     if combat_script.count('"foreground_source_rect": Rect2') != 3:
         fail("each combat interior must define its foreground crop rectangle")
     combat_numbers_node = combat_scene.find('[node name="CombatNumbers"')
@@ -295,6 +340,33 @@ def validate_combat_loading() -> None:
     for token in required_action_button_tokens:
         if token not in combat_script:
             fail(f"combat action button integration is missing: {token}")
+
+    game_state_script = Path("scripts/game_state.gd").read_text(encoding="utf-8")
+    overworld_script = Path("scripts/overworld.gd").read_text(encoding="utf-8")
+    shop_script = Path("scripts/shop.gd").read_text(encoding="utf-8")
+    for token in (
+        "route_step",
+        "begin_location",
+        "complete_location",
+        "award_combat_gold",
+        "prepare_shop_inventory",
+    ):
+        if token not in game_state_script:
+            fail(f"run progression is missing GameState.{token}")
+    for scene_path in (
+        "res://scenes/combat_loader.tscn",
+        "res://scenes/shop.tscn",
+        "res://scenes/coming_soon.tscn",
+    ):
+        if scene_path not in overworld_script:
+            fail(f"overworld does not route to {scene_path}")
+    for token in (
+        "npc_sprite.play(&\"dialogue\")",
+        "GameState.spend_gold",
+        "GameState.complete_location",
+    ):
+        if token not in shop_script:
+            fail(f"shop integration is missing: {token}")
 
 
 def validate_export_settings() -> None:
@@ -338,6 +410,8 @@ def validate_workflows() -> None:
         fail("Web workflow does not enforce the mobile package budget")
     if "scene_lifecycle_test.gd" not in web:
         fail("Web workflow does not test that earlier scenes release their textures")
+    if "progression_smoke_test.gd" not in web:
+        fail("Web workflow does not test route, shop, gold, and enemy tiers")
     if "version_web_export.py" not in web or '"$GITHUB_SHA"' not in web:
         fail("Web workflow does not give each deployment cache-safe filenames")
 

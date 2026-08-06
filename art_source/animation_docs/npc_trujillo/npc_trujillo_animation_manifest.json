@@ -1,0 +1,44 @@
+{
+  "npc": "trujillo_shopkeeper",
+  "format_version": 1,
+  "animation_base": "npc_trujillo_animation_base.png",
+  "cell": {
+    "width": 512,
+    "height": 768,
+    "anchor_x": 256,
+    "bottom_y": 768
+  },
+  "atlas": {
+    "columns": 4,
+    "rows": 2,
+    "frame_order": "row-major"
+  },
+  "animations": {
+    "idle": {
+      "file": "npc_trujillo_idle_atlas.png",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "bridge_frames": [
+        0,
+        1,
+        6,
+        7
+      ]
+    },
+    "dialogue": {
+      "file": "npc_trujillo_dialogue_atlas.png",
+      "frames": 8,
+      "fps": 9,
+      "loop": false,
+      "start_bridge_frame": 0,
+      "end_bridge_frame": 7,
+      "trigger": "successful_shop_purchase",
+      "semantic_replacement_for_enemy_attack": true
+    }
+  },
+  "transition": {
+    "idle_to_dialogue": "Queue dialogue after a successful purchase and start it when idle reaches bridge frame 0, 1, 6 or 7.",
+    "dialogue_to_idle": "When dialogue frame 7 finishes, resume idle at frame 0."
+  }
+}

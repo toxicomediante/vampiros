@@ -4,10 +4,11 @@ Juego PVE de construcción de mazos hecho con Godot 4.7.1.
 
 ## Estado actual
 
-El repositorio contiene el vertical slice jugable: selección de Juan o Michu,
-mapa de ruta, tabernas, combate, recompensas, música y controles para escritorio
-y pantalla táctil. La versión Web se valida, exporta y publica desde `main`
-mediante GitHub Actions.
+El repositorio contiene una ruta jugable completa de ocho tramos: selección de
+Juan o Michu, mapa persistente, encuentros aleatorios por tiers, once enemigos
+animados, Pub Meigas con La Mamona, tienda de Supermercados Trujillo, oro,
+recompensas y llegada al castillo. La versión Web se valida, exporta y publica
+desde `main` mediante GitHub Actions.
 
 Android queda pausado hasta la primera versión estable. Su workflow solo puede
 arrancarse manualmente.
@@ -26,6 +27,10 @@ No hay recursos descargados desde Drive, URLs temporales ni pasos que creen o
 reparen assets durante el despliegue. La música, las imágenes y las fuentes
 necesarias están versionadas en este repositorio.
 
+Los atlas de enemigos no se precargan. Cada combate abre únicamente los `idle`
+y `attack` de los enemigos elegidos para ese tramo; al salir de la escena,
+Godot puede liberar esas texturas antes de volver al mapa.
+
 ## Flujo de trabajo
 
 1. Guarda el original en `art_source/`.
@@ -38,6 +43,10 @@ necesarias están versionadas en este repositorio.
 El build nunca cambia el proyecto. Si el repositorio está bien, publica
 exactamente esos mismos archivos. Si falta algo o Godot muestra un error, el
 workflow falla antes de desplegar.
+
+Además de las escenas principales, Actions ejecuta pruebas de humo para el
+combate y para la progresión completa: tiers, persistencia, oro, tienda y
+castillo.
 
 Cada despliegue Web añade el commit a los nombres del paquete, del motor y de
 los demás archivos de ejecución. El enlace público no cambia, pero el navegador

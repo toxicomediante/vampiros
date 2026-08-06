@@ -1,0 +1,40 @@
+{
+  "enemy": "pavo_white_label",
+  "format_version": 1,
+  "animation_base": "pavo_white_label_animation_base.png",
+  "cell": {
+    "width": 543,
+    "height": 724,
+    "ground_y": 711,
+    "anchor_x": 271
+  },
+  "atlas": {
+    "columns": 4,
+    "rows": 2,
+    "frame_order": "row-major"
+  },
+  "animations": {
+    "idle": {
+      "file": "pavo_white_label_idle_atlas.png",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "bridge_frames": [0, 3, 5, 7],
+      "secondary_motion": "balanced bottle with restrained alternating wobble"
+    },
+    "attack": {
+      "file": "pavo_white_label_attack_atlas.png",
+      "frames": 8,
+      "fps": 9,
+      "loop": false,
+      "start_bridge_frame": 0,
+      "end_bridge_frame": 7,
+      "direction": "screen-left",
+      "secondary_motion": "inertial bottle wobble with anticipation, overshoot and damping"
+    }
+  },
+  "transition": {
+    "idle_to_attack": "Queue attack and start it when idle reaches bridge frame 0, 3, 5 or 7; attack frame 0 is pixel-identical to animation_base.",
+    "attack_to_idle": "When attack frame 7 finishes, resume idle at frame 0; both frames are pixel-identical to animation_base."
+  }
+}

@@ -1,0 +1,139 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://scripts/shop.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/shop/supermercados_trujillo.png" id="2_background"]
+[ext_resource type="Texture2D" path="res://assets/ui/combat/reward_mat.png" id="3_mat"]
+[ext_resource type="Texture2D" path="res://assets/ui/currency/coins.png" id="4_coins"]
+[ext_resource type="FontFile" path="res://assets/fonts/press-start-2p-latin-400-normal.woff2" id="5_font"]
+[ext_resource type="AudioStream" path="res://assets/audio/overworld_luces_entre_la_bruma.ogg" id="6_music"]
+
+[node name="Shop" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_script")
+
+[node name="Background" type="TextureRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+texture = ExtResource("2_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BackgroundMusic" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("6_music")
+volume_db = -9.0
+autoplay = true
+
+[node name="Shopkeeper" type="Node2D" parent="."]
+position = Vector2(1640, 1018)
+scale = Vector2(0.68, 0.68)
+z_index = 2
+
+[node name="Shadow" type="Polygon2D" parent="Shopkeeper"]
+polygon = PackedVector2Array(-160, -12, -105, -28, 0, -38, 105, -28, 160, -12, 105, 5, 0, 12, -105, 5)
+color = Color(0.006, 0.008, 0.012, 0.48)
+z_index = -1
+
+[node name="Sprite" type="AnimatedSprite2D" parent="Shopkeeper"]
+position = Vector2(0, -384)
+
+[node name="Interface" type="CanvasLayer" parent="."]
+
+[node name="ShopMat" type="TextureRect" parent="Interface"]
+offset_left = 88.0
+offset_top = 62.0
+offset_right = 1478.0
+offset_bottom = 1020.0
+mouse_filter = 2
+texture = ExtResource("3_mat")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="Interface"]
+offset_left = 300.0
+offset_top = 125.0
+offset_right = 1260.0
+offset_bottom = 205.0
+theme_override_colors/font_color = Color(1, 0.84, 0.62, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 8
+theme_override_fonts/font = ExtResource("5_font")
+theme_override_font_sizes/font_size = 27
+text = "SUPERMERCADOS TRUJILLO"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Offers" type="Control" parent="Interface"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="SpeechLabel" type="Label" parent="Interface"]
+offset_left = 1470.0
+offset_top = 125.0
+offset_right = 1885.0
+offset_bottom = 290.0
+theme_override_colors/font_color = Color(1, 0.9, 0.76, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("5_font")
+theme_override_font_sizes/font_size = 16
+text = "¡Pasa, pasa!"
+autowrap_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GoldIcon" type="TextureRect" parent="Interface"]
+offset_left = 1665.0
+offset_top = 30.0
+offset_right = 1729.0
+offset_bottom = 94.0
+mouse_filter = 2
+texture = ExtResource("4_coins")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="GoldValue" type="Label" parent="Interface"]
+offset_left = 1734.0
+offset_top = 30.0
+offset_right = 1888.0
+offset_bottom = 94.0
+theme_override_colors/font_color = Color(1, 0.84, 0.38, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("5_font")
+theme_override_font_sizes/font_size = 24
+text = "0"
+vertical_alignment = 1
+
+[node name="ExitButton" type="Button" parent="Interface"]
+offset_left = 1510.0
+offset_top = 922.0
+offset_right = 1880.0
+offset_bottom = 1010.0
+theme_override_colors/font_color = Color(1, 0.88, 0.68, 1)
+theme_override_colors/font_hover_color = Color(1, 0.52, 0.42, 1)
+theme_override_fonts/font = ExtResource("5_font")
+theme_override_font_sizes/font_size = 18
+text = "SALIR"
+
+[node name="Curtain" type="ColorRect" parent="Interface"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.008, 0.012, 0.025, 1)

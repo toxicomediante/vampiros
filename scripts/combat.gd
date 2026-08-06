@@ -2,6 +2,7 @@ extends Control
 
 const CombatantStateScript = preload("res://scripts/combat/combatant_state.gd")
 const CombatDeckScript = preload("res://scripts/combat/combat_deck.gd")
+const EnemyCatalogScript = preload("res://scripts/enemies/enemy_catalog.gd")
 
 const COMBAT_FRAME_SIZE := Vector2i(362, 644)
 const IDLE_FRAME_COUNT := 6
@@ -58,32 +59,15 @@ const REWARD_CARD_X_POSITIONS := [405.0, 812.0, 1219.0]
 const REWARD_CARD_HOVER_SCALE := Vector2(1.065, 1.065)
 const REWARD_SKIP_BUTTON_POSITION := Vector2(750.0, 790.0)
 const REWARD_SKIP_BUTTON_SIZE := Vector2(420.0, 104.0)
+const COIN_TEXTURE_PATH := "res://assets/ui/currency/coins.png"
+const ENEMY_ATLAS_COLUMNS := 4
+const ENEMY_ATLAS_ROWS := 2
+const ENEMY_FRAME_COUNT := 8
 
 const PLAYER_HP := {
 	&"juan": 72,
 	&"michu": 60,
 }
-const ENEMY_DEFINITIONS := [
-	{
-		"id": &"tarantula",
-		"name": "TARÁNTULA",
-		"max_hp": 34,
-		"damage": 6,
-		"texture_path": "res://assets/enemies/tarantula.png",
-		"scale": Vector2(0.86, 0.86),
-		"visible_bottom": 482.0,
-	},
-	{
-		"id": &"malleiro",
-		"name": "VAMPIRO MALLEIRO",
-		"max_hp": 30,
-		"damage": 7,
-		"texture_path": "res://assets/enemies/vampiro_malleiro.png",
-		"scale": Vector2(0.66, 0.66),
-		"visible_bottom": 686.0,
-	},
-]
-
 const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 	"res://assets/backgrounds/combat/bar_interior_01.png",
 	"res://assets/backgrounds/combat/bar_interior_02.png",
@@ -92,28 +76,19 @@ const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 const INTERIOR_LAYOUTS := [
 	{
 		"player_feet": Vector2(560, 960),
-		"enemy_feet": {
-			&"tarantula": Vector2(1120, 690),
-			&"malleiro": Vector2(1570, 760),
-		},
+		"enemy_feet": [Vector2(1120, 720), Vector2(1570, 760)],
 		"foreground_path": "res://assets/backgrounds/combat/bar_foreground_01.png",
 		"foreground_source_rect": Rect2(0, 542, 430, 399),
 	},
 	{
 		"player_feet": Vector2(530, 975),
-		"enemy_feet": {
-			&"tarantula": Vector2(1080, 800),
-			&"malleiro": Vector2(1500, 800),
-		},
+		"enemy_feet": [Vector2(1080, 800), Vector2(1500, 800)],
 		"foreground_path": "res://assets/backgrounds/combat/bar_foreground_02.png",
 		"foreground_source_rect": Rect2(0, 692, 349, 249),
 	},
 	{
 		"player_feet": Vector2(650, 950),
-		"enemy_feet": {
-			&"tarantula": Vector2(1050, 650),
-			&"malleiro": Vector2(1450, 690),
-		},
+		"enemy_feet": [Vector2(1050, 690), Vector2(1450, 720)],
 		"foreground_path": "",
 		"foreground_source_rect": Rect2(),
 	},
@@ -206,6 +181,7 @@ var player_hud: Control
 var player_hud_base_position := PLAYER_UI_POSITION
 var deck_label: Label
 var hint_label: Label
+var gold_label: Label
 var discard_button: TextureButton
 var turn_button: TextureButton
 
@@ -261,29 +237,34 @@ func _prepare_combat_state() -> void:
 		character_id = &"michu"
 	GameState.ensure_run()
 	player = CombatantStateScript.new(PLAYER_HP[character_id])
-	player.hp = clampi(GameState.run_hp, 1, player.max_hp)
+	GameState.restore_player_state(player)
 	deck = CombatDeckScript.new()
 	deck.setup(GameState.run_deck)
 
 
 func _build_enemies() -> void:
 	var layout: Dictionary = INTERIOR_LAYOUTS[interior_index]
-	var enemy_feet: Dictionary = layout["enemy_feet"]
-	for definition: Dictionary in ENEMY_DEFINITIONS:
+	var enemy_feet: Array = layout["enemy_feet"]
+	var encounter: Array[Dictionary] = GameState.current_encounter()
+	for enemy_index in encounter.size():
+		var definition: Dictionary = encounter[enemy_index]
 		var state: CombatantState = CombatantStateScript.new(definition["max_hp"])
-		var sprite := Sprite2D.new()
-		sprite.texture = _load_texture(definition["texture_path"])
-		if sprite.texture == null:
+		var sprite := AnimatedSprite2D.new()
+		sprite.sprite_frames = _build_enemy_frames(definition)
+		if sprite.sprite_frames == null:
 			continue
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		sprite.scale = definition["scale"]
-		var feet_position: Vector2 = enemy_feet[definition["id"]]
-		sprite.position = _center_sprite_on_feet(
-			sprite.texture,
+		var feet_position: Vector2 = enemy_feet[mini(enemy_index, enemy_feet.size() - 1)]
+		sprite.position = _anchor_enemy_on_feet(
+			definition["cell_size"],
 			sprite.scale,
-			definition["visible_bottom"],
+			definition["anchor_x"],
+			definition["ground_y"],
 			feet_position
 		)
 		enemies_root.add_child(sprite)
+		sprite.play(&"idle")
 
 		var enemy := {
 			"id": definition["id"],
@@ -291,12 +272,64 @@ func _build_enemies() -> void:
 			"damage": definition["damage"],
 			"state": state,
 			"sprite": sprite,
+			"cell_size": Vector2(definition["cell_size"]),
+			"feet_position": feet_position,
+			"impact_frame": int(definition["impact_frame"]),
 			"bounds": Rect2(),
 			"hp_label": null,
 			"status_label": null,
 		}
 		enemies.append(enemy)
 		_update_enemy_bounds(enemies.size() - 1)
+
+
+func _build_enemy_frames(definition: Dictionary) -> SpriteFrames:
+	var idle_atlas := _load_texture(definition["idle_path"])
+	var attack_atlas := _load_texture(definition["attack_path"])
+	if idle_atlas == null or attack_atlas == null:
+		return null
+	var cell_size: Vector2i = definition["cell_size"]
+	if (
+		idle_atlas.get_size() != Vector2(
+			cell_size.x * ENEMY_ATLAS_COLUMNS,
+			cell_size.y * ENEMY_ATLAS_ROWS
+		)
+		or attack_atlas.get_size() != idle_atlas.get_size()
+	):
+		push_error("Atlas inválido para %s" % definition["name"])
+		return null
+	var frames := SpriteFrames.new()
+	frames.remove_animation(&"default")
+	_add_enemy_animation(
+		frames, &"idle", idle_atlas, cell_size, definition["idle_fps"], true
+	)
+	_add_enemy_animation(
+		frames, &"attack", attack_atlas, cell_size, definition["attack_fps"], false
+	)
+	return frames
+
+
+func _add_enemy_animation(
+	frames: SpriteFrames,
+	animation_name: StringName,
+	atlas_texture: Texture2D,
+	cell_size: Vector2i,
+	fps: float,
+	looping: bool
+) -> void:
+	frames.add_animation(animation_name)
+	frames.set_animation_loop(animation_name, looping)
+	frames.set_animation_speed(animation_name, fps)
+	for frame_index in ENEMY_FRAME_COUNT:
+		var atlas := AtlasTexture.new()
+		atlas.atlas = atlas_texture
+		atlas.region = Rect2i(
+			(frame_index % ENEMY_ATLAS_COLUMNS) * cell_size.x,
+			floori(float(frame_index) / float(ENEMY_ATLAS_COLUMNS)) * cell_size.y,
+			cell_size.x,
+			cell_size.y
+		)
+		frames.add_frame(animation_name, atlas)
 
 
 func _configure_foreground() -> void:
@@ -314,15 +347,16 @@ func _configure_foreground() -> void:
 	foreground.visible = foreground.texture != null
 
 
-func _center_sprite_on_feet(
-	texture: Texture2D,
+func _anchor_enemy_on_feet(
+	cell_size: Vector2i,
 	sprite_scale: Vector2,
-	visible_bottom: float,
+	anchor_x: float,
+	ground_y: float,
 	feet_position: Vector2
 ) -> Vector2:
 	return feet_position - Vector2(
-		0.0,
-		(visible_bottom - texture.get_height() * 0.5) * sprite_scale.y
+		(anchor_x - cell_size.x * 0.5) * sprite_scale.x,
+		(ground_y - cell_size.y * 0.5) * sprite_scale.y
 	)
 
 
@@ -408,6 +442,21 @@ func _build_runtime_ui() -> void:
 		Color(0.96, 0.82, 0.56)
 	)
 	player_hud.add_child(player_status_label)
+
+	var coin_texture := _load_texture(COIN_TEXTURE_PATH)
+	if coin_texture != null:
+		var coin_icon := _make_texture_rect(
+			coin_texture, Vector2(1678, 30), Vector2(64, 64)
+		)
+		coin_icon.name = "GoldIcon"
+		interface.add_child(coin_icon)
+	gold_label = _make_label(
+		Vector2(1742, 34), Vector2(150, 56), 24, Color(1.0, 0.84, 0.38)
+	)
+	gold_label.name = "GoldValue"
+	gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	gold_label.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	interface.add_child(gold_label)
 
 	for enemy_index in enemies.size():
 		var enemy: Dictionary = enemies[enemy_index]
@@ -741,8 +790,9 @@ func _player_combat_number_position() -> Vector2:
 func _enemy_combat_number_position(enemy_index: int) -> Vector2:
 	if enemy_index < 0 or enemy_index >= enemies.size():
 		return COMBAT_VIEWPORT_SIZE / 2.0
-	var sprite: Sprite2D = enemies[enemy_index]["sprite"]
-	var rise := maxf(145.0, sprite.texture.get_height() * sprite.scale.y * 0.31)
+	var sprite: AnimatedSprite2D = enemies[enemy_index]["sprite"]
+	var cell_size: Vector2 = enemies[enemy_index]["cell_size"]
+	var rise := maxf(145.0, cell_size.y * sprite.scale.y * 0.31)
 	return sprite.position - Vector2(0.0, rise)
 
 
@@ -1250,16 +1300,18 @@ func _end_player_turn() -> void:
 	for enemy_index in enemies.size():
 		if not _enemy_is_alive(enemy_index):
 			continue
-		var sprite: Sprite2D = enemies[enemy_index]["sprite"]
-		var original_position := sprite.position
-		var attack_tween := create_tween()
-		attack_tween.tween_property(sprite, "position:x", original_position.x - 42.0, 0.10)
-		attack_tween.tween_property(sprite, "position:x", original_position.x, 0.16)
-		await attack_tween.finished
+		var sprite: AnimatedSprite2D = enemies[enemy_index]["sprite"]
+		sprite.play(&"attack")
+		var impact_frame := int(enemies[enemy_index]["impact_frame"])
+		while sprite.animation == &"attack" and sprite.frame < impact_frame:
+			await sprite.frame_changed
 		var attack_damage := player.receive_attack(enemies[enemy_index]["damage"])
 		_spawn_combat_number(
 			attack_damage, _player_combat_number_position()
 		)
+		if sprite.animation == &"attack":
+			await sprite.animation_finished
+		sprite.play(&"idle")
 		var state := _enemy_state(enemy_index)
 		var enemy_status_result := state.apply_end_of_turn_statuses()
 		_show_status_result(
@@ -1297,15 +1349,15 @@ func _enemy_at(point: Vector2) -> int:
 
 
 func _update_enemy_bounds(index: int) -> void:
-	var sprite: Sprite2D = enemies[index]["sprite"]
-	var rendered_size := Vector2(sprite.texture.get_size()) * sprite.scale
+	var sprite: AnimatedSprite2D = enemies[index]["sprite"]
+	var rendered_size: Vector2 = enemies[index]["cell_size"] * sprite.scale
 	enemies[index]["bounds"] = Rect2(sprite.position - rendered_size / 2.0, rendered_size)
 
 
 func _refresh_enemy_highlight(point: Vector2) -> void:
 	var selected := _enemy_at(point)
 	for enemy_index in enemies.size():
-		var sprite: Sprite2D = enemies[enemy_index]["sprite"]
+		var sprite: AnimatedSprite2D = enemies[enemy_index]["sprite"]
 		sprite.modulate = (
 			Color(1.35, 1.14, 0.72)
 			if enemy_index == selected
@@ -1315,7 +1367,7 @@ func _refresh_enemy_highlight(point: Vector2) -> void:
 
 func _clear_enemy_highlight() -> void:
 	for enemy: Dictionary in enemies:
-		var sprite: Sprite2D = enemy["sprite"]
+		var sprite: AnimatedSprite2D = enemy["sprite"]
 		sprite.modulate = Color.WHITE
 
 
@@ -1323,7 +1375,7 @@ func _remove_dead_enemies() -> void:
 	for enemy: Dictionary in enemies:
 		var state: CombatantState = enemy["state"]
 		if state.hp <= 0:
-			var sprite: Sprite2D = enemy["sprite"]
+			var sprite: AnimatedSprite2D = enemy["sprite"]
 			sprite.visible = false
 
 
@@ -1351,6 +1403,8 @@ func _refresh_all_ui() -> void:
 		deck.discard_pile.size(),
 		deck.hand.size(),
 	]
+	if is_instance_valid(gold_label):
+		gold_label.text = str(GameState.run_gold)
 	for enemy: Dictionary in enemies:
 		var state: CombatantState = enemy["state"]
 		var hp_label: Label = enemy["hp_label"]
@@ -1399,7 +1453,8 @@ func _finish_combat(victory: bool) -> void:
 	combat_finished = true
 	_reset_card_interaction()
 	if victory:
-		GameState.run_hp = player.hp
+		GameState.save_player_state(player)
+		GameState.award_combat_gold()
 	turn_button.disabled = true
 	_refresh_action_button_visual(turn_button)
 	discard_button.disabled = true
@@ -1426,9 +1481,9 @@ func _finish_combat(victory: bool) -> void:
 			Vector2(500, 470), Vector2(920, 90), 19, Color(0.92, 0.86, 0.78)
 		)
 		detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		detail.text = "VUELVE AL MAPA PARA INTENTARLO DE NUEVO"
+		detail.text = "LA NOCHE TERMINA AQUÍ"
 		modal_content.add_child(detail)
-		_add_return_button("VOLVER AL MAPA", Vector2(760, 610))
+		_add_return_button("ELEGIR PERSONAJE", Vector2(760, 610), "DefeatButton")
 
 
 func _build_reward_offer() -> void:
@@ -1456,6 +1511,24 @@ func _build_reward_offer() -> void:
 	reward_title.add_theme_constant_override("outline_size", 7)
 	reward_title.text = "ELIGE UNA CARTA"
 	modal_content.add_child(reward_title)
+
+	var coin_texture := _load_texture(COIN_TEXTURE_PATH)
+	if coin_texture != null:
+		var reward_coin := _make_texture_rect(
+			coin_texture, Vector2(790, 247), Vector2(64, 64)
+		)
+		reward_coin.name = "RewardGoldIcon"
+		modal_content.add_child(reward_coin)
+	var gold_reward := _make_label(
+		Vector2(858, 244), Vector2(340, 68), 20, Color(1.0, 0.84, 0.38)
+	)
+	gold_reward.name = "RewardGoldValue"
+	gold_reward.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	gold_reward.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	gold_reward.text = "+%d   TOTAL %d" % [
+		GameState.last_gold_reward, GameState.run_gold
+	]
+	modal_content.add_child(gold_reward)
 	var reward := RewardGenerator.generate(GameState.selected_character)
 	for reward_index in reward.size():
 		var card_id: StringName = reward[reward_index]
@@ -1513,6 +1586,7 @@ func _animate_reward_card(button: TextureButton, hovered: bool) -> void:
 
 func _choose_reward(card_id: StringName) -> void:
 	GameState.add_reward_card(card_id)
+	GameState.complete_location()
 	hint_label.text = "RECOMPENSA ELEGIDA: %s" % CardCatalog.CARDS[card_id]["name"]
 	get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 
@@ -1526,7 +1600,9 @@ func _add_reward_skip_button() -> void:
 		"OMITIR RECOMPENSA"
 	)
 	skip_button.pressed.connect(
-		func(): get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+		func():
+			GameState.complete_location()
+			get_tree().change_scene_to_file("res://scenes/overworld.tscn")
 	)
 	modal_content.add_child(skip_button)
 
@@ -1543,7 +1619,9 @@ func _add_return_button(
 	continue_button.size = Vector2(400, 84)
 	continue_button.add_theme_font_size_override("font_size", 22)
 	continue_button.pressed.connect(
-		func(): get_tree().change_scene_to_file("res://scenes/overworld.tscn")
+		func():
+			GameState.abandon_run()
+			get_tree().change_scene_to_file("res://scenes/main.tscn")
 	)
 	modal_content.add_child(continue_button)
 

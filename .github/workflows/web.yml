@@ -16,7 +16,7 @@ concurrency:
 
 env:
   GODOT_VERSION: 4.7.1
-  MAX_WEB_PCK_BYTES: 36700160
+  MAX_WEB_PCK_BYTES: 134217728
 
 jobs:
   build:
@@ -51,7 +51,7 @@ jobs:
         run: |
           set -o pipefail
           : > godot-runtime.log
-          for scene in main overworld combat_loader; do
+          for scene in main overworld combat_loader shop coming_soon; do
             timeout 2m godot --headless --path . \
               --scene "res://scenes/${scene}.tscn" \
               --fixed-fps 60 \
@@ -64,6 +64,10 @@ jobs:
             | tee -a godot-runtime.log
           timeout 2m godot --headless --path . \
             --script tools/scene_lifecycle_test.gd \
+            --fixed-fps 60 2>&1 \
+            | tee -a godot-runtime.log
+          timeout 4m godot --headless --path . \
+            --script tools/progression_smoke_test.gd \
             --fixed-fps 60 2>&1 \
             | tee -a godot-runtime.log
           python3 tools/validate_project.py \

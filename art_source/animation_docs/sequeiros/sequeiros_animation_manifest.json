@@ -1,0 +1,46 @@
+{
+  "enemy": "sequeiros",
+  "format_version": 1,
+  "animation_base": "sequeiros_animation_base.png",
+  "cell": {
+    "width": 512,
+    "height": 768,
+    "ground_y": 732,
+    "anchor_x": 237
+  },
+  "atlas": {
+    "columns": 4,
+    "rows": 2,
+    "frame_order": "row-major"
+  },
+  "animations": {
+    "idle": {
+      "file": "sequeiros_idle_atlas.png",
+      "frames": 8,
+      "fps": 6,
+      "loop": true,
+      "bridge_frames": [
+        0,
+        3,
+        5,
+        7
+      ],
+      "secondary_motion": "restrained body sway; beer and foam counter-slosh inside the upright mug"
+    },
+    "attack": {
+      "file": "sequeiros_attack_atlas.png",
+      "frames": 8,
+      "fps": 9,
+      "loop": false,
+      "start_bridge_frame": 0,
+      "end_bridge_frame": 7,
+      "direction": "screen-left",
+      "action": "short heavy shoulder/body-check while preserving the beer mug",
+      "secondary_motion": "foam lags right on acceleration, overshoots left on impact, crosses right and damps before rest"
+    }
+  },
+  "transition": {
+    "idle_to_attack": "Queue attack and start it on idle bridge frame 0, 3, 5 or 7; attack frame 0 is pixel-identical to animation_base.",
+    "attack_to_idle": "When attack frame 7 finishes, resume idle at frame 0; both are pixel-identical to animation_base."
+  }
+}

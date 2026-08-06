@@ -1,0 +1,59 @@
+{
+  "character": "vampiro_malleiro",
+  "version": "2.0-alpha-fixed",
+  "native_frame": {
+    "width": 543,
+    "height": 724,
+    "format": "PNG RGBA",
+    "origin": "bottom_center",
+    "ground_y": 684
+  },
+  "atlas": {
+    "columns": 4,
+    "rows": 2,
+    "width": 2172,
+    "height": 1448,
+    "frame_order": "left_to_right_top_row_then_bottom_row"
+  },
+  "animations": {
+    "idle": {
+      "file": "vampiro_malleiro_idle_atlas.png",
+      "frames": 8,
+      "fps": 7,
+      "loop": true,
+      "bridge_frames": [
+        0,
+        7
+      ]
+    },
+    "attack": {
+      "file": "vampiro_malleiro_attack_atlas.png",
+      "frames": 8,
+      "fps": 10,
+      "loop": false,
+      "direction": "screen_left",
+      "bridge_frames": [
+        0,
+        7
+      ],
+      "return_to": "idle:0"
+    }
+  },
+  "animation_base": "vampiro_malleiro_animation_base.png",
+  "transition_contract": {
+    "idle_to_attack": "Queue the attack until idle reaches bridge frame 0 or 7, then play attack from frame 0.",
+    "attack_to_idle": "When attack frame 7 finishes, switch directly to idle frame 0.",
+    "pixel_difference_at_all_bridge_frames": 0
+  },
+  "import_notes": {
+    "godot_filter": false,
+    "godot_mipmaps": false,
+    "texture_region_hframes": 4,
+    "texture_region_vframes": 2
+  },
+  "animation_base_source": "vampiro_malleiro_base(4).png (native RGBA)",
+  "alpha_corrections": {
+    "animation_base": "2:1 premultiplied BOX reduction from native alpha",
+    "atlases": "frames 0 and 7 replaced; white matte removed locally from glasses"
+  }
+}

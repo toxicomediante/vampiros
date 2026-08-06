@@ -21,6 +21,22 @@ const SCENE_CASES := [
 			"res://assets/characters/overworld/michu_overworld_animations.png",
 		],
 	},
+	{
+		"scene": "res://scenes/shop.tscn",
+		"resources": [
+			"res://assets/backgrounds/shop/supermercados_trujillo.png",
+			"res://assets/ui/combat/reward_mat.png",
+			"res://assets/ui/currency/coins.png",
+			"res://assets/npcs/trujillo/idle_atlas.png",
+			"res://assets/npcs/trujillo/dialogue_atlas.png",
+		],
+	},
+	{
+		"scene": "res://scenes/coming_soon.tscn",
+		"resources": [
+			"res://assets/ui/vampiros_logo.png",
+		],
+	},
 ]
 
 var failed := false
@@ -69,7 +85,7 @@ func _run() -> void:
 			)
 
 	if not failed:
-		print("SCENE LIFECYCLE OK: título y mapa liberan sus texturas")
+		print("SCENE LIFECYCLE OK: título, mapa y tienda liberan sus texturas")
 	quit(1 if failed else 0)
 
 

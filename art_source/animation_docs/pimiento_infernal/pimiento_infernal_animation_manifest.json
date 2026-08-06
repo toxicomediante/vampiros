@@ -1,0 +1,83 @@
+{
+  "enemy": "Pimiento Infernal",
+  "slug": "pimiento_infernal",
+  "format": "RGBA PNG",
+  "frame_size": {
+    "width": 512,
+    "height": 768
+  },
+  "atlas_grid": {
+    "columns": 4,
+    "rows": 2
+  },
+  "frame_count": 8,
+  "origin": "top_left",
+  "anchor": {
+    "type": "fixed_canvas",
+    "note": "Keep the same Sprite2D position for idle and attack."
+  },
+  "animations": {
+    "idle": {
+      "fps": 8,
+      "loop": true,
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ]
+    },
+    "attack": {
+      "fps": 11,
+      "loop": false,
+      "frames": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "direction": "screen-left"
+    }
+  },
+  "transition_contract": {
+    "idle_first_equals_animation_base": true,
+    "idle_last_equals_animation_base": true,
+    "attack_first_equals_animation_base": true,
+    "attack_last_equals_animation_base": true,
+    "pixel_difference": {
+      "idle_first": 0,
+      "idle_last": 0,
+      "attack_first": 0,
+      "attack_last": 0
+    }
+  },
+  "validation": {
+    "base": {
+      "visible_pixels": 57438,
+      "partial_alpha_pixels": 3078,
+      "suspicious_magenta_pixels": 0,
+      "near_white_visible_pixels": 0
+    },
+    "idle_atlas": {
+      "visible_pixels": 424516,
+      "partial_alpha_pixels": 45978,
+      "suspicious_magenta_pixels": 0,
+      "near_white_visible_pixels": 46
+    },
+    "attack_atlas": {
+      "visible_pixels": 411994,
+      "partial_alpha_pixels": 48782,
+      "suspicious_magenta_pixels": 0,
+      "near_white_visible_pixels": 8
+    },
+    "no_cell_edge_contact": true
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "enemy": "Momia",
+  "format": "RGBA8 PNG sprite atlas",
+  "frame_size": [543, 724],
+  "atlas_size": [2172, 1448],
+  "layout": {
+    "columns": 4,
+    "rows": 2,
+    "frames": 8,
+    "order": "left_to_right_top_to_bottom",
+    "frame_index_base": 0
+  },
+  "animation_base": {
+    "file": "momia_animation_base.png",
+    "source": "momia_base_cerrado(1).png",
+    "scale": 0.5,
+    "alpha": "preserved from supplied RGBA master"
+  },
+  "animations": {
+    "idle": {
+      "file": "momia_idle_atlas.png",
+      "loop": true,
+      "recommended_fps": 6,
+      "sequence": "closed wobble, weight shift, small hop, door fake-out, recovery, closed",
+      "door_rule": "ajar without revealing the mummy",
+      "bridge_frames": [0, 7],
+      "bridge_matches_animation_base": true
+    },
+    "attack": {
+      "file": "momia_attack_atlas.png",
+      "loop": false,
+      "recommended_fps": 9,
+      "direction": "screen-left",
+      "sequence": "closed, ajar, partial opening, supplied open keyframe, physical claw strike, supplied open keyframe, partial closing, closed",
+      "supplied_open_keyframes": [3, 5],
+      "impact_frame": 4,
+      "bridge_frames": [0, 7],
+      "bridge_matches_animation_base": true
+    }
+  },
+  "integration": {
+    "same_node_position_scale_and_offset": true,
+    "attack_returns_to_idle_frame": 0,
+    "pixel_filtering": "nearest"
+  },
+  "validation": {
+    "extreme_frame_pixel_difference": 0,
+    "transparent_corners": true,
+    "chroma_residue": 0,
+    "alpha_review_backgrounds": ["black", "white", "dark red"],
+    "cropped_frames": 0
+  }
+}

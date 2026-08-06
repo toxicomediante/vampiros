@@ -1,0 +1,39 @@
+{
+  "enemy_id": "el_futbolin",
+  "display_name": "El Futbolín",
+  "format_version": 3,
+  "animation_base": "el_futbolin_animation_base.png",
+  "source_scale": 0.5,
+  "cell_size": {
+    "width": 768,
+    "height": 512
+  },
+  "atlas_grid": {
+    "columns": 4,
+    "rows": 2
+  },
+  "animations": {
+    "idle": {
+      "atlas": "el_futbolin_idle_atlas.png",
+      "frames": 8,
+      "fps": 7,
+      "loop": true
+    },
+    "attack": {
+      "atlas": "el_futbolin_attack_atlas.png",
+      "frames": 8,
+      "fps": 9,
+      "loop": false,
+      "peak_frame": 3,
+      "effect_frames": [
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  },
+  "direction": "screen_left",
+  "layering": "personaje completo redibujado detrás del futbolín; plano inferior bloqueado al maestro",
+  "notes": "Las piernas se han redibujado con escorzo para un plano de suelo posterior. Botas, pantorrillas, faldón y patas de la mesa son idénticos en los 16 frames. El idle acciona las barras de forma contenida. El ataque es un grito con aspavientos y símbolos rojos desplazándose hacia la izquierda durante cuatro frames. Frames 0 y 7 son copias exactas del animation_base."
+}

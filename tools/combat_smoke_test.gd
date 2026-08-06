@@ -24,7 +24,6 @@ const INTERIOR_LAYOUTS := [
 		"foreground_source_rect": Rect2(),
 	},
 ]
-const ENEMY_VISIBLE_BOTTOMS := [482.0, 686.0]
 const STATUS_ATLAS_PATH := "res://assets/ui/combat/status/status_atlas.png"
 const COMBAT_NUMBER_FONT_PATH := "res://assets/fonts/press-start-2p-latin-400-normal.woff2"
 const COMBAT_NUMBER_NORMAL_COLOR := Color(1.0, 1.0, 1.0)
@@ -108,6 +107,7 @@ func _run() -> void:
 		game_state.select_combat_interior(interior_index)
 		game_state.select_character(&"michu")
 		game_state.start_new_run()
+		game_state.begin_location(0, 0, &"tavern", interior_index)
 		var interior_combat := packed_scene.instantiate()
 		root.add_child(interior_combat)
 		current_scene = interior_combat
@@ -150,15 +150,9 @@ func _run() -> void:
 		)
 		for enemy_index in mini(interior_enemies.size(), 2):
 			var enemy: Dictionary = interior_enemies[enemy_index]
-			var enemy_sprite := enemy.get("sprite") as Sprite2D
-			if enemy_sprite != null and enemy_sprite.texture != null:
-				var actual_feet := enemy_sprite.position + Vector2(
-					0.0,
-					(
-						ENEMY_VISIBLE_BOTTOMS[enemy_index]
-						- enemy_sprite.texture.get_height() * 0.5
-					) * enemy_sprite.scale.y
-				)
+			var enemy_sprite := enemy.get("sprite") as AnimatedSprite2D
+			if enemy_sprite != null and enemy_sprite.sprite_frames != null:
+				var actual_feet: Vector2 = enemy.get("feet_position")
 				_expect(
 					actual_feet.distance_to(layout["enemy_feet"][enemy_index]) < 0.1,
 					"el enemigo %d del bar %d no apoya los pies en su zona" % [
@@ -176,6 +170,7 @@ func _run() -> void:
 	for character_id: StringName in CHARACTER_IDS:
 		game_state.select_character(character_id)
 		game_state.start_new_run()
+		game_state.begin_location(0, 0, &"tavern", 0)
 		var combat := packed_scene.instantiate()
 		root.add_child(combat)
 		current_scene = combat
@@ -493,10 +488,12 @@ func _run() -> void:
 			"%s no carga los dos enemigos" % character_id
 		)
 		for enemy: Dictionary in enemies:
-			var sprite := enemy.get("sprite") as Sprite2D
+			var sprite := enemy.get("sprite") as AnimatedSprite2D
 			_expect(
-				sprite != null and sprite.texture != null,
-				"%s construye un enemigo sin textura" % character_id
+				sprite != null
+				and sprite.sprite_frames != null
+				and sprite.animation == &"idle",
+				"%s construye un enemigo sin animación idle" % character_id
 			)
 
 		var combat_number_layer := combat.get_node_or_null(
