@@ -33,6 +33,65 @@ CACHE_META = """\
 """
 
 
+def legacy_service_worker_cleanup(build_id: str) -> str:
+    """Return a one-shot cleanup for the PWA worker used by older exports.
+
+    VAMPIROS briefly shipped with Godot's PWA export enabled. Disabling the
+    option stops creating a worker, but it does not remove a worker already
+    installed in a browser profile. That stale worker can keep serving an old
+    HTML/runtime combination indefinitely. Only Cache Storage entries inside
+    this deployment path are removed; game saves and settings are untouched.
+    """
+    return f"""\
+		<script>
+		(() => {{
+			"use strict";
+			const buildId = "{build_id}";
+			const cleanupKey = `vampiros-sw-cleanup-${{buildId}}`;
+			const appRoot = new URL("./", window.location.href);
+
+			async function deleteScopedCacheEntries() {{
+				if (!("caches" in window)) return false;
+				let changed = false;
+				for (const cacheName of await caches.keys()) {{
+					const cache = await caches.open(cacheName);
+					for (const request of await cache.keys()) {{
+						const url = new URL(request.url);
+						if (url.origin === appRoot.origin && url.pathname.startsWith(appRoot.pathname)) {{
+							changed = (await cache.delete(request)) || changed;
+						}}
+					}}
+					if ((await cache.keys()).length === 0) await caches.delete(cacheName);
+				}}
+				return changed;
+			}}
+
+			async function removeLegacyWorker() {{
+				if (!("serviceWorker" in navigator)) return false;
+				let changed = false;
+				for (const registration of await navigator.serviceWorker.getRegistrations()) {{
+					if (registration.scope === appRoot.href) {{
+						changed = (await registration.unregister()) || changed;
+					}}
+				}}
+				return changed;
+			}}
+
+			if (sessionStorage.getItem(cleanupKey) === "done") return;
+			Promise.all([removeLegacyWorker(), deleteScopedCacheEntries()])
+				.then(([workerRemoved, cacheChanged]) => {{
+					sessionStorage.setItem(cleanupKey, "done");
+					if (!workerRemoved && !cacheChanged) return;
+					const refreshed = new URL(window.location.href);
+					refreshed.searchParams.set("v", buildId.slice(0, 12));
+					window.location.replace(refreshed.href);
+				}})
+				.catch((error) => console.warn("VAMPIROS cache cleanup failed", error));
+		}})();
+		</script>
+"""
+
+
 def version_web_export(build_dir: Path, build_id: str) -> None:
     """Rename generated runtime files and rewrite their HTML references."""
     if BUILD_ID_PATTERN.fullmatch(build_id) is None:
@@ -68,7 +127,7 @@ def version_web_export(build_dir: Path, build_id: str) -> None:
     html = html.replace(
         head_token,
         f'{head_token}\n\t\t<meta name="vampiros-build" content="{build_id}">\n'
-        f"{CACHE_META}",
+        f"{CACHE_META}{legacy_service_worker_cleanup(build_id)}",
         1,
     )
     index_path.write_text(html, encoding="utf-8")
