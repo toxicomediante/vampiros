@@ -49,6 +49,7 @@ EXPECTED_RUNTIME_TEXTURES = {
     Path("assets/ui/combat/def_bar_fill.png"): (453, 34),
     Path("assets/ui/combat/portraits/juan.png"): (96, 96),
     Path("assets/ui/combat/portraits/michu.png"): (96, 96),
+    Path("assets/ui/combat/targeting/ouija_target_marker.png"): (72, 112),
     Path("assets/ui/options/options_panel.png"): (1024, 1535),
     Path("assets/ui/options/options_gear.png"): (96, 96),
     Path("assets/ui/options/checkbox_empty.png"): (64, 64),
@@ -70,6 +71,7 @@ REQUIRED_TRANSPARENT_ASSETS = {
     Path("assets/ui/combat/def_bar_fill.png"),
     Path("assets/ui/combat/portraits/juan.png"),
     Path("assets/ui/combat/portraits/michu.png"),
+    Path("assets/ui/combat/targeting/ouija_target_marker.png"),
     *Path("assets/ui/options").rglob("*.png"),
     *Path("assets/cards").rglob("*.png"),
 }

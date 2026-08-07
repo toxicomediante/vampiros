@@ -40,6 +40,17 @@ func _run() -> void:
 			== expected_tier_counts[tier_index],
 			"el tier %d no respeta el inventario" % (tier_index + 1)
 		)
+	var reduced_enemy_damage := {
+		&"sequeiros": 5,
+		&"pimiento_infernal": 6,
+		&"media_croqueta": 5,
+	}
+	for enemy_id: StringName in reduced_enemy_damage:
+		_expect(
+			int(EnemyCatalogScript.definition(enemy_id)["damage"])
+			== int(reduced_enemy_damage[enemy_id]),
+			"%s no conserva el daño reducido" % enemy_id
+		)
 
 	for enemy_id: StringName in EnemyCatalogScript.DEFINITIONS:
 		var definition := EnemyCatalogScript.definition(enemy_id)
@@ -103,7 +114,7 @@ func _run() -> void:
 		for _frame in 12:
 			await process_frame
 		var offers := shop.get_node_or_null("Interface/Offers") as Control
-		var npc := shop.get_node_or_null("Shopkeeper/Sprite") as AnimatedSprite2D
+		var npc := shop.get_node_or_null("Interface/Shopkeeper/Sprite") as AnimatedSprite2D
 		var exit_button := shop.get_node_or_null("Interface/ExitButton") as TextureButton
 		var options_hud := shop.get_node_or_null("OptionsHUD") as CanvasLayer
 		var first_offer: TextureButton
@@ -116,11 +127,24 @@ func _run() -> void:
 			"el tendero sigue apareciendo pequeño y esquinado"
 		)
 		_expect(
+			npc != null
+			and npc.get_parent().get_parent() == shop.get_node_or_null("Interface")
+			and npc.get_parent().z_index > 0,
+			"el tendero no está en primer plano sobre la interfaz"
+		)
+		_expect(
 			exit_button != null and exit_button.texture_normal != null,
 			"Trujillo no usa el botón SALIR gráfico"
 		)
 		_expect(options_hud != null, "Trujillo no incluye el menú de opciones")
 		if first_offer != null:
+			var first_card_id: StringName = first_offer.get_meta("card_id")
+			var first_card_cost: int = CardCatalog.CARDS[first_card_id]["cost"]
+			_expect(
+				int(shop.call("_card_price", first_card_id))
+				== 15 + first_card_cost * 5,
+				"los precios de Trujillo no están reducidos a la mitad"
+			)
 			first_offer.emit_signal("pressed")
 			await process_frame
 			_expect(

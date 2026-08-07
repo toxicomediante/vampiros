@@ -9,6 +9,7 @@ var regeneration := 0
 var vulnerable := 0
 var strength := 0
 var autodefense := 0
+var stun := 0
 
 
 func _init(initial_max_hp: int) -> void:

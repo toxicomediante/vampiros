@@ -52,6 +52,13 @@ const CARD_TEXTURE_PATHS := [
 	"res://assets/cards/neutral/katana.png",
 	"res://assets/cards/neutral/camino.png",
 	"res://assets/cards/neutral/variz.png",
+	"res://assets/cards/neutral/circulo_negro.png",
+	"res://assets/cards/neutral/pollo_con_pollo.png",
+	"res://assets/cards/neutral/la_slam.png",
+	"res://assets/cards/neutral/la_revancha.png",
+	"res://assets/cards/neutral/ahora_la_vi.png",
+	"res://assets/cards/neutral/evangelio.png",
+	"res://assets/cards/neutral/licor_k.png",
 ]
 
 var failed := false
@@ -84,6 +91,49 @@ func _run() -> void:
 			)
 		texture = null
 		await process_frame
+
+	_expect(
+		CardCatalog.CARDS[&"fresquita"]["owner"] == CardCatalog.Owner.JUAN,
+		"FRESQUITA deja de pertenecer a Juan"
+	)
+	for character_id: StringName in CHARACTER_IDS:
+		var candidates := RewardGenerator.character_candidates(character_id)
+		var starting_recipe: Dictionary = CardCatalog.STARTING_DECKS[character_id]
+		for starter_card: StringName in starting_recipe:
+			_expect(
+				not candidates.has(starter_card),
+				"%s ofrece la carta básica %s como recompensa" % [
+					character_id, starter_card
+				]
+			)
+		for _iteration in 20:
+			var generated := RewardGenerator.generate(character_id)
+			_expect(
+				generated.size() == 3
+				and generated[0] != generated[1]
+				and generated[0] != generated[2]
+				and generated[1] != generated[2],
+				"%s no genera tres recompensas" % character_id
+			)
+			for excluded_card: StringName in [
+				&"la_variz", &"la_prole", &"tuerca"
+			]:
+				_expect(
+					not generated.has(excluded_card),
+					"%s ofrece %s pese a estar excluida" % [
+						character_id, excluded_card
+					]
+				)
+	_expect(
+		RewardGenerator.character_candidates(&"juan").has(&"fresquita")
+		and RewardGenerator.character_candidates(&"juan").has(&"el_oculto"),
+		"las recompensas de Juan omiten FRESQUITA o EL OCULTO"
+	)
+	_expect(
+		RewardGenerator.neutral_candidates().has(&"la_revancha")
+		and not RewardGenerator.neutral_candidates().has(&"tuerca"),
+		"LA REVANCHA o TUERCA no respetan el corte publicado"
+	)
 
 	var status_atlas := load(STATUS_ATLAS_PATH) as Texture2D
 	_expect(status_atlas != null, "no se puede cargar el atlas de estados")
@@ -521,6 +571,16 @@ func _run() -> void:
 			enemies.size() == 2,
 			"%s no carga los dos enemigos" % character_id
 		)
+		var target_marker := combat.get_node_or_null(
+			"Enemies/EnemyTargetMarker"
+		) as Sprite2D
+		_expect(
+			target_marker != null
+			and target_marker.texture != null
+			and target_marker.texture.get_size() == Vector2(72, 112)
+			and not target_marker.visible,
+			"%s no crea la ficha de selección oculta" % character_id
+		)
 		for enemy: Dictionary in enemies:
 			var sprite := enemy.get("sprite") as AnimatedSprite2D
 			var enemy_id: StringName = enemy.get("id", &"")
@@ -537,6 +597,41 @@ func _run() -> void:
 					== expected_idle_frames,
 				"%s construye un enemigo sin animación idle" % character_id
 			)
+		if target_marker != null and not enemies.is_empty():
+			var targeted_card: TextureButton
+			for hand_button: TextureButton in card_buttons:
+				var hand_card_id: StringName = hand_button.get_meta("card_id")
+				if (
+					CardCatalog.CARDS[hand_card_id]["target"]
+					== CardCatalog.Target.ONE_ENEMY
+				):
+					targeted_card = hand_button
+					break
+			_expect(
+				targeted_card != null,
+				"%s no tiene una carta para probar la selección" % character_id
+			)
+			if targeted_card != null:
+				var targeted_card_id: StringName = targeted_card.get_meta("card_id")
+				var first_enemy_bounds: Rect2 = enemies[0]["bounds"]
+				combat.set("drag_card", targeted_card)
+				combat.set("drag_card_id", targeted_card_id)
+				combat.call("_refresh_enemy_highlight", first_enemy_bounds.get_center())
+				_expect(
+					target_marker.visible
+					and is_equal_approx(
+						target_marker.position.x,
+						first_enemy_bounds.get_center().x
+					),
+					"%s no coloca la ficha sobre el enemigo seleccionado" % character_id
+				)
+				combat.call("_clear_enemy_highlight")
+				_expect(
+					not target_marker.visible,
+					"%s no oculta la ficha al terminar la selección" % character_id
+				)
+				combat.set("drag_card", null)
+				combat.set("drag_card_id", &"")
 
 		var combat_number_layer := combat.get_node_or_null(
 			"Interface/CombatNumbers"
@@ -719,6 +814,123 @@ func _run() -> void:
 		combat.queue_free()
 		for _frame in 5:
 			await process_frame
+
+	game_state.select_character(&"juan")
+	game_state.start_new_run()
+	game_state.begin_location(0, 0, &"tavern", 0)
+	var mechanics_combat := packed_scene.instantiate()
+	root.add_child(mechanics_combat)
+	current_scene = mechanics_combat
+	for _frame in 12:
+		await process_frame
+	var mechanics_deck = mechanics_combat.get("deck")
+	var mechanics_player = mechanics_combat.get("player")
+	var mechanics_enemies: Array = mechanics_combat.get("enemies")
+
+	mechanics_combat.call(
+		"_resolve_card",
+		&"circulo_negro",
+		CardCatalog.CARDS[&"circulo_negro"],
+		0
+	)
+	_expect(
+		mechanics_enemies[0]["state"].get("stun") == 1,
+		"CÍRCULO NEGRO no anula el siguiente ataque"
+	)
+
+	mechanics_deck.set("hand", [&"pollo_con_pollo"])
+	mechanics_combat.call("set_energy", 3)
+	mechanics_player.set("poison", 0)
+	_expect(
+		mechanics_combat.call("_try_play_card", &"pollo_con_pollo", -1)
+		and mechanics_player.get("poison") == 2
+		and mechanics_deck.get("exhausted_pile").has(&"pollo_con_pollo"),
+		"POLLO CON POLLO no envenena y se agota"
+	)
+
+	mechanics_deck.set("hand", [&"la_slam"])
+	mechanics_combat.call("set_energy", 3)
+	var gold_before_slam: int = game_state.run_gold
+	_expect(
+		mechanics_combat.call("_try_play_card", &"la_slam", -1)
+		and game_state.run_gold == gold_before_slam + 20
+		and mechanics_deck.get("exhausted_pile").has(&"la_slam"),
+		"LA SLAM no entrega 20 de oro y se agota"
+	)
+
+	mechanics_combat.set("free_card_counts", {})
+	mechanics_deck.set("hand", [&"ahora_la_vi", &"guantazo", &"juan_guardia"])
+	mechanics_combat.call("set_energy", 3)
+	_expect(
+		mechanics_combat.call("_try_play_card", &"ahora_la_vi", -1)
+		and mechanics_combat.call("_effective_card_cost", &"guantazo") == 0
+		and mechanics_combat.call("_effective_card_cost", &"juan_guardia") == 0,
+		"¡AHORA LA VI! no vuelve gratuita la mano actual"
+	)
+
+	mechanics_combat.set("free_card_counts", {})
+	mechanics_deck.set("hand", [&"evangelio"])
+	mechanics_deck.set("draw_pile", [&"guantazo", &"juan_guardia"])
+	mechanics_combat.call("set_energy", 3)
+	_expect(
+		mechanics_combat.call("_try_play_card", &"evangelio", -1)
+		and mechanics_deck.get("hand").has(&"guantazo")
+		and mechanics_deck.get("hand").has(&"juan_guardia")
+		and mechanics_combat.call("_effective_card_cost", &"guantazo") == 0
+		and mechanics_combat.call("_effective_card_cost", &"juan_guardia") == 0,
+		"EVANGELIO no roba dos cartas gratuitas"
+	)
+
+	mechanics_combat.set("free_card_counts", {})
+	mechanics_deck.set("hand", [&"licor_k"])
+	mechanics_combat.call("set_energy", 3)
+	mechanics_player.set("strength", 0)
+	_expect(
+		mechanics_combat.call("_try_play_card", &"licor_k", -1)
+		and mechanics_player.get("strength") == 1,
+		"LICOR-K no concede fuerza durante el combate"
+	)
+
+	mechanics_combat.set("free_card_counts", {})
+	mechanics_deck.set("hand", [&"la_revancha"])
+	mechanics_combat.call("set_energy", 3)
+	_expect(
+		mechanics_combat.call("_try_play_card", &"la_revancha", -1),
+		"LA REVANCHA no se puede jugar"
+	)
+	var discover_overlay := mechanics_combat.get_node_or_null(
+		"Presentation/ModalContent/DiscoverOverlay"
+	) as Control
+	_expect(discover_overlay != null, "LA REVANCHA no abre su elección")
+	if discover_overlay != null:
+		var first_discovered := discover_overlay.get_node_or_null(
+			"DiscoverCard0"
+		) as TextureButton
+		_expect(
+			first_discovered != null
+			and discover_overlay.get_node_or_null("DiscoverCard1") != null
+			and discover_overlay.get_node_or_null("DiscoverCard2") != null,
+			"LA REVANCHA no presenta tres cartas"
+		)
+		if first_discovered != null:
+			var discovered_id: StringName = first_discovered.get_meta("card_id")
+			_expect(
+				discovered_id not in [&"la_variz", &"la_prole", &"tuerca"],
+				"LA REVANCHA ofrece una carta excluida"
+			)
+			mechanics_combat.call("_choose_discovered_card", discovered_id)
+			_expect(
+				mechanics_deck.get("hand").has(discovered_id)
+				and mechanics_combat.call(
+					"_effective_card_cost", discovered_id
+				) == 0,
+				"LA REVANCHA no añade gratis la carta elegida"
+			)
+
+	current_scene = null
+	mechanics_combat.queue_free()
+	for _frame in 5:
+		await process_frame
 
 	_finish()
 

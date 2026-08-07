@@ -34,6 +34,7 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/boton_descartar.png"),
     Path("assets/ui/combat/boton_fin_turno.png"),
     Path("assets/ui/combat/boton_omitir.png"),
+    Path("assets/ui/combat/targeting/ouija_target_marker.png"),
     Path("assets/ui/combat/reward_mat.png"),
     Path("assets/ui/options/options_panel.png"),
     Path("assets/ui/options/options_gear.png"),
@@ -337,6 +338,35 @@ def validate_combat_loading() -> None:
     ):
         if required_combat_number_hook not in combat_script:
             fail(f"combat number feedback is missing {required_combat_number_hook}")
+    for target_marker_token in (
+        'res://assets/ui/combat/targeting/ouija_target_marker.png',
+        '_build_target_marker()',
+        '_update_target_marker(selected)',
+    ):
+        if target_marker_token not in combat_script:
+            fail(f"enemy target marker integration is missing: {target_marker_token}")
+    for card_runtime_token in (
+        'res://assets/cards/neutral/circulo_negro.png',
+        'res://assets/cards/neutral/pollo_con_pollo.png',
+        'res://assets/cards/neutral/la_slam.png',
+        'res://assets/cards/neutral/la_revancha.png',
+        'res://assets/cards/neutral/ahora_la_vi.png',
+        'res://assets/cards/neutral/evangelio.png',
+        'res://assets/cards/neutral/licor_k.png',
+        '_open_discover_choice(choice_count)',
+        '_effective_card_cost(card_id)',
+    ):
+        if card_runtime_token not in combat_script:
+            fail(f"card runtime integration is missing: {card_runtime_token}")
+
+    reward_script = Path("scripts/cards/reward_generator.gd").read_text(
+        encoding="utf-8"
+    )
+    for excluded_card in ('&"la_variz"', '&"la_prole"', '&"tuerca"'):
+        if excluded_card not in reward_script:
+            fail(f"reward exclusions are missing {excluded_card}")
+    if "STARTING_DECKS.get" not in reward_script:
+        fail("character starting cards are not excluded from rewards")
     required_action_button_tokens = (
         'const DISCARD_BUTTON_POSITION := Vector2(1497.0, 976.0)',
         'const TURN_BUTTON_POSITION := Vector2(1653.0, 721.0)',
@@ -395,6 +425,10 @@ def validate_combat_loading() -> None:
     shop_scene = Path("scenes/shop.tscn").read_text(encoding="utf-8")
     if "res://assets/ui/options/boton_salir.png" not in shop_scene:
         fail("Trujillo does not use the supplied SALIR button")
+    if 'parent="Interface/Shopkeeper"' not in shop_scene or "z_index = 20" not in shop_scene:
+        fail("Trujillo shopkeeper is not rendered in front of the shop UI")
+    if 'return 15 + int(card_data["cost"]) * 5' not in shop_script:
+        fail("Trujillo prices were not reduced by half")
 
 
 def validate_export_settings() -> None:

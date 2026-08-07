@@ -108,7 +108,7 @@ const DEFINITIONS := {
 	&"sequeiros": {
 		"name": "SEQUEIROS",
 		"max_hp": 40,
-		"damage": 7,
+		"damage": 5,
 		"tiers": [3, 4],
 		"asset_folder": "sequeiros",
 		"cell_size": Vector2i(512, 768),
@@ -136,7 +136,7 @@ const DEFINITIONS := {
 	&"media_croqueta": {
 		"name": "MEDIA CROQUETA",
 		"max_hp": 46,
-		"damage": 7,
+		"damage": 5,
 		"tiers": [4, 5],
 		"asset_folder": "media_croqueta",
 		"cell_size": Vector2i(512, 768),
@@ -150,7 +150,7 @@ const DEFINITIONS := {
 	&"pimiento_infernal": {
 		"name": "PIMIENTO INFERNAL",
 		"max_hp": 48,
-		"damage": 8,
+		"damage": 6,
 		"tiers": [4, 5],
 		"asset_folder": "pimiento_infernal",
 		"cell_size": Vector2i(512, 768),

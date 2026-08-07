@@ -59,6 +59,9 @@ const REWARD_CARD_X_POSITIONS := [405.0, 812.0, 1219.0]
 const REWARD_CARD_HOVER_SCALE := Vector2(1.065, 1.065)
 const REWARD_SKIP_BUTTON_POSITION := Vector2(750.0, 790.0)
 const REWARD_SKIP_BUTTON_SIZE := Vector2(420.0, 104.0)
+const DISCOVER_CARD_SIZE := Vector2(296.0, 444.0)
+const DISCOVER_CARD_Y := 330.0
+const DISCOVER_CARD_X_POSITIONS := [405.0, 812.0, 1219.0]
 const COIN_TEXTURE_PATH := "res://assets/ui/currency/coins.png"
 const ENEMY_ATLAS_COLUMNS := 4
 const ENEMY_ATLAS_ROWS := 2
@@ -114,6 +117,13 @@ const CARD_TEXTURE_PATHS := {
 	&"katana_escondida": "res://assets/cards/neutral/katana.png",
 	&"el_camino_te_camela": "res://assets/cards/neutral/camino.png",
 	&"la_variz": "res://assets/cards/neutral/variz.png",
+	&"circulo_negro": "res://assets/cards/neutral/circulo_negro.png",
+	&"pollo_con_pollo": "res://assets/cards/neutral/pollo_con_pollo.png",
+	&"la_slam": "res://assets/cards/neutral/la_slam.png",
+	&"la_revancha": "res://assets/cards/neutral/la_revancha.png",
+	&"ahora_la_vi": "res://assets/cards/neutral/ahora_la_vi.png",
+	&"evangelio": "res://assets/cards/neutral/evangelio.png",
+	&"licor_k": "res://assets/cards/neutral/licor_k.png",
 }
 const ENERGY_STATES_PATH := "res://assets/ui/combat/energy_states.png"
 const HP_DEF_FRAME_PATH := "res://assets/ui/combat/hp_def_frame.png"
@@ -126,6 +136,10 @@ const TURN_BUTTON_TEXTURE := preload(
 const REWARD_SKIP_BUTTON_TEXTURE := preload(
 	"res://assets/ui/combat/boton_omitir.png"
 )
+const TARGET_MARKER_TEXTURE := preload(
+	"res://assets/ui/combat/targeting/ouija_target_marker.png"
+)
+const TARGET_MARKER_GAP := 12.0
 
 @onready var background: TextureRect = $Background
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
@@ -163,6 +177,9 @@ var discard_window_open := true
 var discard_mode := false
 var combat_finished := false
 var interior_index := 0
+var free_card_counts := {}
+var pending_discover_choices := 0
+var discover_overlay: Control
 
 var player_hp_label: Label
 var player_block_label: Label
@@ -177,6 +194,7 @@ var deck_label: Label
 var hint_label: Label
 var discard_button: TextureButton
 var turn_button: TextureButton
+var target_marker: Sprite2D
 
 
 func _ready() -> void:
@@ -199,6 +217,7 @@ func _ready() -> void:
 	_prepare_character()
 	_prepare_combat_state()
 	_build_enemies()
+	_build_target_marker()
 	_build_runtime_ui()
 	_begin_player_turn(true)
 
@@ -275,6 +294,16 @@ func _build_enemies() -> void:
 		}
 		enemies.append(enemy)
 		_update_enemy_bounds(enemies.size() - 1)
+
+
+func _build_target_marker() -> void:
+	target_marker = Sprite2D.new()
+	target_marker.name = "EnemyTargetMarker"
+	target_marker.texture = TARGET_MARKER_TEXTURE
+	target_marker.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	target_marker.z_index = 100
+	target_marker.visible = false
+	enemies_root.add_child(target_marker)
 
 
 func _build_enemy_frames(definition: Dictionary) -> SpriteFrames:
@@ -811,6 +840,7 @@ func _show_status_result(
 func _begin_player_turn(first_turn := false) -> void:
 	if combat_finished:
 		return
+	free_card_counts.clear()
 	player.begin_turn()
 	deck.begin_turn()
 	discard_window_open = true
@@ -863,9 +893,10 @@ func _rebuild_hand() -> void:
 		)
 		button.rotation = deg_to_rad(offset * CARD_FAN_ROTATION)
 		button.z_index = card_index
+		var effective_cost := _effective_card_cost(card_id)
 		button.tooltip_text = "%s · Coste %d" % [
 			CardCatalog.CARDS[card_id]["name"],
-			CardCatalog.CARDS[card_id]["cost"],
+			effective_cost,
 		]
 		button.set_meta("card_id", card_id)
 		button.set_meta("home_position", button.position)
@@ -876,7 +907,28 @@ func _rebuild_hand() -> void:
 		button.mouse_entered.connect(_on_card_hovered.bind(button))
 		button.mouse_exited.connect(_on_card_unhovered.bind(button))
 		interface.add_child(button)
+		if effective_cost == 0 and int(CardCatalog.CARDS[card_id]["cost"]) > 0:
+			_add_temporary_cost_badge(button)
 		card_buttons.append(button)
+
+
+func _add_temporary_cost_badge(button: TextureButton) -> void:
+	var badge := Label.new()
+	badge.name = "TemporaryCost"
+	badge.position = Vector2(22.0, 20.0)
+	badge.size = Vector2(48.0, 48.0)
+	badge.text = "0"
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	badge.add_theme_font_size_override("font_size", 24)
+	badge.add_theme_color_override("font_color", Color(0.72, 1.0, 0.55))
+	badge.add_theme_color_override(
+		"font_outline_color", Color(0.02, 0.01, 0.02)
+	)
+	badge.add_theme_constant_override("outline_size", 8)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	button.add_child(badge)
 
 
 func _start_card_drag(
@@ -913,6 +965,7 @@ func _move_card_drag(pointer: Vector2) -> void:
 func _discard_card(card_id: StringName) -> void:
 	if not discard_window_open or not deck.discard(card_id):
 		return
+	_consume_free_cost(card_id)
 	hint_label.text = "%s DESCARTADA · CONSERVA O DESCARTA OTRA" % (
 		CardCatalog.CARDS[card_id]["name"]
 	)
@@ -930,7 +983,7 @@ func _toggle_discard_mode(enabled: bool) -> void:
 
 
 func _on_card_input(event: InputEvent, button: TextureButton) -> void:
-	if combat_finished:
+	if combat_finished or is_instance_valid(discover_overlay):
 		return
 	var card_id: StringName = button.get_meta("card_id")
 	if event is InputEventMouseButton:
@@ -1196,7 +1249,7 @@ func _finish_card_drag(drop_position: Vector2) -> void:
 
 func _try_play_card(card_id: StringName, target_index: int) -> bool:
 	var card_data: Dictionary = CardCatalog.CARDS[card_id]
-	var cost: int = card_data["cost"]
+	var cost := _effective_card_cost(card_id)
 	if not deck.can_pay(cost):
 		hint_label.text = "NO TIENES ENERGÍA SUFICIENTE"
 		return false
@@ -1204,14 +1257,18 @@ func _try_play_card(card_id: StringName, target_index: int) -> bool:
 		return false
 
 	deck.pay(cost)
+	_consume_free_cost(card_id)
 	set_energy(deck.energy)
 	discard_window_open = false
 	discard_mode = false
 	discard_button.button_pressed = false
 	discard_button.disabled = true
 	_refresh_action_button_visual(discard_button)
-	_resolve_card(card_data, target_index)
-	deck.discard(card_id)
+	_resolve_card(card_id, card_data, target_index)
+	if _card_exhausts(card_data):
+		deck.exhaust(card_id)
+	else:
+		deck.discard(card_id)
 	hint_label.text = "%s JUGADA" % card_data["name"]
 	_remove_dead_enemies()
 	if _all_enemies_dead():
@@ -1219,10 +1276,55 @@ func _try_play_card(card_id: StringName, target_index: int) -> bool:
 	else:
 		_rebuild_hand()
 		_refresh_all_ui()
+		if pending_discover_choices > 0:
+			var choice_count := pending_discover_choices
+			pending_discover_choices = 0
+			_open_discover_choice(choice_count)
 	return true
 
 
-func _resolve_card(card_data: Dictionary, target_index: int) -> void:
+func _effective_card_cost(card_id: StringName) -> int:
+	if int(free_card_counts.get(card_id, 0)) > 0:
+		return 0
+	return int(CardCatalog.CARDS[card_id]["cost"])
+
+
+func _consume_free_cost(card_id: StringName) -> void:
+	var copies := int(free_card_counts.get(card_id, 0))
+	if copies <= 1:
+		free_card_counts.erase(card_id)
+	else:
+		free_card_counts[card_id] = copies - 1
+
+
+func _make_current_hand_free(played_card_id: StringName) -> void:
+	var skipped_played_copy := false
+	for hand_card_id: StringName in deck.hand:
+		if hand_card_id == played_card_id and not skipped_played_copy:
+			skipped_played_copy = true
+			continue
+		free_card_counts[hand_card_id] = (
+			int(free_card_counts.get(hand_card_id, 0)) + 1
+		)
+
+
+func _mark_cards_free(card_ids: Array[StringName]) -> void:
+	for card_id: StringName in card_ids:
+		free_card_counts[card_id] = int(free_card_counts.get(card_id, 0)) + 1
+
+
+func _card_exhausts(card_data: Dictionary) -> bool:
+	for effect: Dictionary in card_data["effects"]:
+		if effect["type"] == &"exhaust":
+			return true
+	return false
+
+
+func _resolve_card(
+	card_id: StringName,
+	card_data: Dictionary,
+	target_index: int
+) -> void:
 	for effect: Dictionary in card_data["effects"]:
 		match effect["type"]:
 			&"damage":
@@ -1269,11 +1371,107 @@ func _resolve_card(card_data: Dictionary, target_index: int) -> void:
 				_spawn_combat_number(
 					self_damage, _player_combat_number_position()
 				)
+			&"stun":
+				if target_index >= 0:
+					_enemy_state(target_index).stun += int(effect["amount"])
+			&"gold":
+				GameState.add_gold(int(effect["amount"]))
+			&"set_hand_cost":
+				_make_current_hand_free(card_id)
+			&"draw":
+				var drawn_cards := deck.draw(int(effect["amount"]))
+				if int(effect.get("drawn_cost", -1)) == 0:
+					_mark_cards_free(drawn_cards)
+			&"discover":
+				pending_discover_choices = int(effect.get("choices", 3))
+
+
+func _open_discover_choice(choice_count: int) -> void:
+	var choices := RewardGenerator.discover(
+		GameState.selected_character, choice_count
+	)
+	if choices.is_empty():
+		return
+	discover_overlay = Control.new()
+	discover_overlay.name = "DiscoverOverlay"
+	discover_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	discover_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	discover_overlay.z_index = 200
+	modal_content.add_child(discover_overlay)
+
+	var shade := ColorRect.new()
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.color = Color(0.015, 0.008, 0.02, 0.84)
+	shade.mouse_filter = Control.MOUSE_FILTER_STOP
+	discover_overlay.add_child(shade)
+
+	var title := _make_label(
+		Vector2(480, 170), Vector2(960, 90), 27, Color(0.98, 0.88, 0.69)
+	)
+	title.name = "DiscoverTitle"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.add_theme_font_override("font", COMBAT_NUMBER_FONT)
+	title.text = "LA REVANCHA · ELIGE UNA CARTA GRATIS"
+	discover_overlay.add_child(title)
+
+	for choice_index in choices.size():
+		var choice_id: StringName = choices[choice_index]
+		var choice := TextureButton.new()
+		choice.name = "DiscoverCard%d" % choice_index
+		choice.texture_normal = _card_texture(choice_id)
+		choice.texture_hover = choice.texture_normal
+		choice.texture_pressed = choice.texture_normal
+		choice.ignore_texture_size = true
+		choice.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+		choice.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+		choice.position = Vector2(
+			DISCOVER_CARD_X_POSITIONS[choice_index], DISCOVER_CARD_Y
+		)
+		choice.size = DISCOVER_CARD_SIZE
+		choice.pivot_offset = DISCOVER_CARD_SIZE / 2.0
+		choice.focus_mode = Control.FOCUS_NONE
+		choice.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		choice.tooltip_text = "%s · Coste 0" % (
+			CardCatalog.CARDS[choice_id]["name"]
+		)
+		choice.set_meta("card_id", choice_id)
+		choice.mouse_entered.connect(_animate_reward_card.bind(choice, true))
+		choice.mouse_exited.connect(_animate_reward_card.bind(choice, false))
+		choice.pressed.connect(_choose_discovered_card.bind(choice_id))
+		discover_overlay.add_child(choice)
+
+	turn_button.disabled = true
+	discard_button.disabled = true
+	_refresh_action_button_visual(turn_button)
+	_refresh_action_button_visual(discard_button)
+
+
+func _choose_discovered_card(card_id: StringName) -> void:
+	if not is_instance_valid(discover_overlay):
+		return
+	deck.add_to_hand(card_id)
+	free_card_counts[card_id] = int(free_card_counts.get(card_id, 0)) + 1
+	discover_overlay.queue_free()
+	discover_overlay = null
+	turn_button.disabled = false
+	_refresh_action_button_visual(turn_button)
+	hint_label.text = "%s ENTRA EN TU MANO · COSTE 0" % (
+		CardCatalog.CARDS[card_id]["name"]
+	)
+	_rebuild_hand()
+	_refresh_all_ui()
 
 
 func _end_player_turn() -> void:
-	if combat_finished or drag_card != null or pressed_card != null:
+	if (
+		combat_finished
+		or drag_card != null
+		or pressed_card != null
+		or is_instance_valid(discover_overlay)
+	):
 		return
+	free_card_counts.clear()
 	turn_button.disabled = true
 	_refresh_action_button_visual(turn_button)
 	discard_window_open = false
@@ -1288,6 +1486,22 @@ func _end_player_turn() -> void:
 	for enemy_index in enemies.size():
 		if not _enemy_is_alive(enemy_index):
 			continue
+		var state := _enemy_state(enemy_index)
+		if state.stun > 0:
+			state.stun -= 1
+			var stunned_status_result := state.apply_end_of_turn_statuses()
+			_show_status_result(
+				stunned_status_result,
+				_enemy_combat_number_position(enemy_index)
+			)
+			state.finish_turn()
+			hint_label.text = "%s PIERDE SU ATAQUE" % enemies[enemy_index]["name"]
+			_refresh_all_ui()
+			_remove_dead_enemies()
+			if _all_enemies_dead():
+				_finish_combat(true)
+				return
+			continue
 		var sprite: AnimatedSprite2D = enemies[enemy_index]["sprite"]
 		sprite.play(&"attack")
 		var impact_frame := int(enemies[enemy_index]["impact_frame"])
@@ -1300,7 +1514,6 @@ func _end_player_turn() -> void:
 		if sprite.animation == &"attack":
 			await sprite.animation_finished
 		sprite.play(&"idle")
-		var state := _enemy_state(enemy_index)
 		var enemy_status_result := state.apply_end_of_turn_statuses()
 		_show_status_result(
 			enemy_status_result, _enemy_combat_number_position(enemy_index)
@@ -1343,7 +1556,11 @@ func _update_enemy_bounds(index: int) -> void:
 
 
 func _refresh_enemy_highlight(point: Vector2) -> void:
-	var selected := _enemy_at(point)
+	var selected := -1
+	if is_instance_valid(drag_card):
+		var card_data: Dictionary = CardCatalog.CARDS[drag_card_id]
+		if card_data["target"] == CardCatalog.Target.ONE_ENEMY:
+			selected = _enemy_at(point)
 	for enemy_index in enemies.size():
 		var sprite: AnimatedSprite2D = enemies[enemy_index]["sprite"]
 		sprite.modulate = (
@@ -1351,12 +1568,33 @@ func _refresh_enemy_highlight(point: Vector2) -> void:
 			if enemy_index == selected
 			else Color.WHITE
 		)
+	_update_target_marker(selected)
+
+
+func _update_target_marker(enemy_index: int) -> void:
+	if not is_instance_valid(target_marker):
+		return
+	if enemy_index < 0 or not _enemy_is_alive(enemy_index):
+		target_marker.visible = false
+		return
+	var bounds: Rect2 = enemies[enemy_index]["bounds"]
+	var marker_half_height := TARGET_MARKER_TEXTURE.get_height() * 0.5
+	target_marker.position = Vector2(
+		bounds.get_center().x,
+		maxf(
+			marker_half_height + TARGET_MARKER_GAP,
+			bounds.position.y - TARGET_MARKER_GAP - marker_half_height
+		)
+	)
+	target_marker.visible = true
 
 
 func _clear_enemy_highlight() -> void:
 	for enemy: Dictionary in enemies:
 		var sprite: AnimatedSprite2D = enemy["sprite"]
 		sprite.modulate = Color.WHITE
+	if is_instance_valid(target_marker):
+		target_marker.visible = false
 
 
 func _remove_dead_enemies() -> void:
@@ -1413,6 +1651,8 @@ func _status_text(state: CombatantState) -> String:
 		parts.append("FUERZA %d" % state.strength)
 	if state.autodefense > 0:
 		parts.append("AUTODEFENSA %d" % state.autodefense)
+	if state.stun > 0:
+		parts.append("ATURDIDO %d" % state.stun)
 	return " · ".join(parts) if not parts.is_empty() else "SIN ESTADOS"
 
 

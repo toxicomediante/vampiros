@@ -42,6 +42,11 @@ const COMPACT_STATUS_DEFINITIONS := [
 		"frame": 4,
 		"color": Color(1.0, 0.27, 0.20),
 	},
+	{
+		"property": &"stun",
+		"frame": 4,
+		"color": Color(0.82, 0.52, 1.0),
+	},
 ]
 
 var compact_status_atlas_texture: Texture2D

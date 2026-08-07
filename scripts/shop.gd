@@ -27,7 +27,7 @@ const CARD_TEXTURE_PATHS := {
 	&"la_variz": "res://assets/cards/neutral/variz.png",
 }
 
-@onready var npc_sprite: AnimatedSprite2D = $Shopkeeper/Sprite
+@onready var npc_sprite: AnimatedSprite2D = $Interface/Shopkeeper/Sprite
 @onready var speech_label: Label = $Interface/SpeechLabel
 @onready var offers_root: Control = $Interface/Offers
 @onready var exit_button: TextureButton = $Interface/ExitButton
@@ -158,7 +158,7 @@ func _build_offers() -> void:
 
 func _card_price(card_id: StringName) -> int:
 	var card_data: Dictionary = CardCatalog.CARDS[card_id]
-	return 30 + int(card_data["cost"]) * 10
+	return 15 + int(card_data["cost"]) * 5
 
 
 func _buy_card(button: TextureButton, card_id: StringName) -> void:

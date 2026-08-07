@@ -47,6 +47,10 @@ func draw(amount: int) -> Array[StringName]:
 	return drawn
 
 
+func add_to_hand(card_id: StringName) -> void:
+	hand.append(card_id)
+
+
 func discard(card_id: StringName) -> bool:
 	var index := hand.find(card_id)
 	if index < 0:
