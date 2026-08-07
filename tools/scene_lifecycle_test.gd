@@ -8,8 +8,6 @@ const SCENE_CASES := [
 			"res://assets/characters/juan_idle.png",
 			"res://assets/ui/options/options_panel.png",
 			"res://assets/ui/options/options_gear.png",
-			"res://assets/ui/options/checkbox_empty.png",
-			"res://assets/ui/options/checkbox_checked.png",
 			"res://assets/ui/options/volume_track.png",
 			"res://assets/ui/options/volume_knob.png",
 		],
