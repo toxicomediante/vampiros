@@ -73,6 +73,7 @@ const INTERIOR_BACKGROUND_PATHS: Array[String] = [
 	"res://assets/backgrounds/combat/bar_interior_02.png",
 	"res://assets/backgrounds/combat/bar_interior_03.png",
 ]
+const PUB_MEIGAS_BACKGROUND_PATH := "res://assets/backgrounds/combat/pub_meigas.png"
 const INTERIOR_LAYOUTS := [
 	{
 		"player_feet": Vector2(560, 960),
@@ -114,10 +115,6 @@ const CARD_TEXTURE_PATHS := {
 	&"el_camino_te_camela": "res://assets/cards/neutral/camino.png",
 	&"la_variz": "res://assets/cards/neutral/variz.png",
 }
-const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
-const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
-const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
-const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 const ENERGY_STATES_PATH := "res://assets/ui/combat/energy_states.png"
 const HP_DEF_FRAME_PATH := "res://assets/ui/combat/hp_def_frame.png"
 const DISCARD_BUTTON_TEXTURE := preload(
@@ -139,13 +136,10 @@ const REWARD_SKIP_BUTTON_TEXTURE := preload(
 @onready var foreground: TextureRect = $Foreground
 @onready var interface: CanvasLayer = $Interface
 @onready var curtain: ColorRect = $Interface/Curtain
-@onready var fullscreen_button: TextureButton = $Interface/TopControls/FullscreenButton
-@onready var sound_button: TextureButton = $Interface/TopControls/SoundButton
 @onready var energy_counter: TextureRect = $Interface/EnergyCounter
 @onready var combat_numbers: Control = $Interface/CombatNumbers
 @onready var modal_content: Control = $Presentation/ModalContent
 
-var sound_enabled := true
 var player: CombatantState
 var deck: CombatDeck
 var enemies: Array[Dictionary] = []
@@ -181,23 +175,26 @@ var player_hud: Control
 var player_hud_base_position := PLAYER_UI_POSITION
 var deck_label: Label
 var hint_label: Label
-var gold_label: Label
 var discard_button: TextureButton
 var turn_button: TextureButton
 
 
 func _ready() -> void:
-	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	_configure_music_loop()
+	GameState.apply_music_volume(background_music)
 	if not background_music.playing:
 		background_music.play()
 
-	interior_index = clampi(
-		GameState.selected_combat_interior,
-		0,
-		INTERIOR_BACKGROUND_PATHS.size() - 1
-	)
-	background.texture = _load_texture(INTERIOR_BACKGROUND_PATHS[interior_index])
+	if GameState.pending_location_kind == &"meigas":
+		interior_index = 2
+		background.texture = _load_texture(PUB_MEIGAS_BACKGROUND_PATH)
+	else:
+		interior_index = clampi(
+			GameState.selected_combat_interior,
+			0,
+			INTERIOR_BACKGROUND_PATHS.size() - 1
+		)
+		background.texture = _load_texture(INTERIOR_BACKGROUND_PATHS[interior_index])
 	_configure_foreground()
 	_prepare_character()
 	_prepare_combat_state()
@@ -205,9 +202,6 @@ func _ready() -> void:
 	_build_runtime_ui()
 	_begin_player_turn(true)
 
-	fullscreen_button.pressed.connect(_toggle_fullscreen)
-	sound_button.pressed.connect(_toggle_sound)
-	_refresh_control_icons()
 	_play_scene_intro()
 
 
@@ -451,21 +445,6 @@ func _build_runtime_ui() -> void:
 		Color(0.96, 0.82, 0.56)
 	)
 	player_hud.add_child(player_status_label)
-
-	var coin_texture := _load_texture(COIN_TEXTURE_PATH)
-	if coin_texture != null:
-		var coin_icon := _make_texture_rect(
-			coin_texture, Vector2(1678, 30), Vector2(64, 64)
-		)
-		coin_icon.name = "GoldIcon"
-		interface.add_child(coin_icon)
-	gold_label = _make_label(
-		Vector2(1742, 34), Vector2(150, 56), 24, Color(1.0, 0.84, 0.38)
-	)
-	gold_label.name = "GoldValue"
-	gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	gold_label.add_theme_font_override("font", COMBAT_NUMBER_FONT)
-	interface.add_child(gold_label)
 
 	for enemy_index in enemies.size():
 		var enemy: Dictionary = enemies[enemy_index]
@@ -1412,8 +1391,6 @@ func _refresh_all_ui() -> void:
 		deck.discard_pile.size(),
 		deck.hand.size(),
 	]
-	if is_instance_valid(gold_label):
-		gold_label.text = str(GameState.run_gold)
 	for enemy: Dictionary in enemies:
 		var state: CombatantState = enemy["state"]
 		var hp_label: Label = enemy["hp_label"]
@@ -1680,31 +1657,3 @@ func _play_scene_intro() -> void:
 	reveal.tween_property(curtain, "color:a", 0.0, 0.65)
 	reveal.tween_property(character_root, "modulate:a", 1.0, 0.48).set_delay(0.18)
 	reveal.tween_property(enemies_root, "modulate:a", 1.0, 0.48).set_delay(0.28)
-
-
-func _toggle_fullscreen() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	DisplayServer.window_set_mode(
-		DisplayServer.WINDOW_MODE_WINDOWED if is_fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN
-	)
-	await get_tree().process_frame
-	_refresh_control_icons()
-
-
-func _toggle_sound() -> void:
-	sound_enabled = not sound_enabled
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), not sound_enabled)
-	background_music.stream_paused = not sound_enabled
-	if sound_enabled and not background_music.playing:
-		background_music.play()
-	_refresh_control_icons()
-
-
-func _refresh_control_icons() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	fullscreen_button.texture_normal = WINDOWED_TEXTURE if is_fullscreen else FULLSCREEN_TEXTURE
-	fullscreen_button.tooltip_text = (
-		"SALIR DE PANTALLA COMPLETA" if is_fullscreen else "PANTALLA COMPLETA"
-	)
-	sound_button.texture_normal = SOUND_ON_TEXTURE if sound_enabled else SOUND_OFF_TEXTURE
-	sound_button.tooltip_text = "DESACTIVAR SONIDO" if sound_enabled else "ACTIVAR SONIDO"

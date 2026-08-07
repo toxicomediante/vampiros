@@ -14,20 +14,12 @@ const IDLE_FPS := 5.0
 @onready var start_button: TextureButton = $StartButton
 @onready var status: Label = $Status
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
-@onready var fullscreen_button: TextureButton = $TopControls/FullscreenButton
-@onready var sound_button: TextureButton = $TopControls/SoundButton
-
-const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
-const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
-const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
-const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
 
 var selected_character := ""
-var sound_enabled := true
 
 func _ready() -> void:
-	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	_configure_music_loop()
+	GameState.apply_music_volume(background_music)
 	if not background_music.playing:
 		background_music.play()
 	var michu_sheet := _load_texture(MICHU_SHEET_PATH)
@@ -42,10 +34,7 @@ func _ready() -> void:
 	michu_button.pressed.connect(_select_character.bind("michu"))
 	juan_button.pressed.connect(_select_character.bind("juan"))
 	start_button.pressed.connect(_start_night)
-	fullscreen_button.pressed.connect(_toggle_fullscreen)
-	sound_button.pressed.connect(_toggle_sound)
 	start_button.disabled = true
-	_refresh_control_icons()
 	_play_intro()
 
 
@@ -129,29 +118,5 @@ func _start_night() -> void:
 
 func _ensure_music_started() -> void:
 	# Web browsers may defer autoplay until the player's first interaction.
-	if sound_enabled and not background_music.playing:
+	if GameState.music_volume > 0.001 and not background_music.playing:
 		background_music.play()
-
-func _toggle_fullscreen() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	DisplayServer.window_set_mode(
-		DisplayServer.WINDOW_MODE_WINDOWED if is_fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN
-	)
-	# Allow the browser/window manager to apply the mode before refreshing the icon.
-	await get_tree().process_frame
-	_refresh_control_icons()
-
-func _toggle_sound() -> void:
-	sound_enabled = not sound_enabled
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), not sound_enabled)
-	background_music.stream_paused = not sound_enabled
-	if sound_enabled:
-		_ensure_music_started()
-	_refresh_control_icons()
-
-func _refresh_control_icons() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	fullscreen_button.texture_normal = WINDOWED_TEXTURE if is_fullscreen else FULLSCREEN_TEXTURE
-	fullscreen_button.tooltip_text = "SALIR DE PANTALLA COMPLETA" if is_fullscreen else "PANTALLA COMPLETA"
-	sound_button.texture_normal = SOUND_ON_TEXTURE if sound_enabled else SOUND_OFF_TEXTURE
-	sound_button.tooltip_text = "DESACTIVAR SONIDO" if sound_enabled else "ACTIVAR SONIDO"

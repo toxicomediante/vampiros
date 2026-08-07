@@ -20,11 +20,6 @@ const CLICK_DRAG_THRESHOLD := 18.0
 const MIN_CHARACTER_SCALE := 1.35
 const MAX_CHARACTER_SCALE := 1.65
 
-const FULLSCREEN_TEXTURE := preload("res://assets/ui/generated/fullscreen.png")
-const WINDOWED_TEXTURE := preload("res://assets/ui/generated/windowed.png")
-const SOUND_ON_TEXTURE := preload("res://assets/ui/generated/sound_on.png")
-const SOUND_OFF_TEXTURE := preload("res://assets/ui/generated/sound_off.png")
-const UI_FONT := preload("res://assets/fonts/press-start-2p-latin-400-normal.woff2")
 const TAVERN_PATHS: Array[String] = [
 	"res://assets/overworld/taberna_01.png",
 	"res://assets/overworld/taberna_02.png",
@@ -32,7 +27,6 @@ const TAVERN_PATHS: Array[String] = [
 ]
 const PUB_MEIGAS_PATH := "res://assets/overworld/pub_meigas.png"
 const SUPERMERCADOS_TRUJILLO_PATH := "res://assets/overworld/supermercados_trujillo.png"
-const COIN_TEXTURE_PATH := "res://assets/ui/currency/coins.png"
 const COMBAT_LOADER_SCENE_PATH := "res://scenes/combat_loader.tscn"
 const SHOP_SCENE_PATH := "res://scenes/shop.tscn"
 const COMING_SOON_SCENE_PATH := "res://scenes/coming_soon.tscn"
@@ -57,8 +51,6 @@ const STEP_POSITIONS: Array[Array] = [
 @onready var curtain: ColorRect = $Interface/Curtain
 @onready var journey_label: Label = $Interface/JourneyLabel
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
-@onready var fullscreen_button: TextureButton = $Interface/TopControls/FullscreenButton
-@onready var sound_button: TextureButton = $Interface/TopControls/SoundButton
 @onready var character_root: Node2D = $RouteCharacter
 @onready var character_sprite: AnimatedSprite2D = $RouteCharacter/Sprite
 
@@ -69,27 +61,21 @@ var touch_tracking := false
 var touch_drag_distance := 0.0
 var route_choice_enabled := false
 var character_moving := false
-var sound_enabled := true
 var route_locations: Array = []
 var warm_glow_texture: GradientTexture2D
 var meigas_pink_glow_texture: GradientTexture2D
 var meigas_blue_glow_texture: GradientTexture2D
 var additive_glow_material: CanvasItemMaterial
-var gold_label: Label
 
 func _ready() -> void:
 	_prepare_location_glows()
-	sound_enabled = not AudioServer.is_bus_mute(AudioServer.get_bus_index("Master"))
 	_configure_music_loop()
-	fullscreen_button.pressed.connect(_toggle_fullscreen)
-	sound_button.pressed.connect(_toggle_sound)
-	_refresh_control_icons()
+	GameState.apply_music_volume(background_music)
 	camera.position = Vector2(960.0, CASTLE_CAMERA_Y)
 	curtain.color.a = 1.0
 	journey_label.modulate.a = 0.0
 	_generate_route()
 	_prepare_character()
-	_build_gold_display()
 	if GameState.route_step == 0:
 		_play_map_intro()
 	else:
@@ -577,54 +563,3 @@ func _resume_map() -> void:
 	await reveal.finished
 	map_navigation_enabled = true
 	_enable_destination_choice()
-
-
-func _build_gold_display() -> void:
-	var coin_texture := _load_texture(COIN_TEXTURE_PATH)
-	if coin_texture != null:
-		var coin_icon := TextureRect.new()
-		coin_icon.name = "GoldIcon"
-		coin_icon.position = Vector2(1678, 26)
-		coin_icon.size = Vector2(64, 64)
-		coin_icon.texture = coin_texture
-		coin_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		coin_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		coin_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		coin_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		$Interface.add_child(coin_icon)
-	gold_label = Label.new()
-	gold_label.name = "GoldValue"
-	gold_label.position = Vector2(1742, 30)
-	gold_label.size = Vector2(150, 56)
-	gold_label.text = str(GameState.run_gold)
-	gold_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	gold_label.add_theme_font_override("font", UI_FONT)
-	gold_label.add_theme_font_size_override("font_size", 24)
-	gold_label.add_theme_color_override("font_color", Color(1.0, 0.84, 0.38))
-	gold_label.add_theme_color_override("font_outline_color", Color(0.02, 0.01, 0.015))
-	gold_label.add_theme_constant_override("outline_size", 6)
-	$Interface.add_child(gold_label)
-	$Interface.move_child(curtain, $Interface.get_child_count() - 1)
-
-func _toggle_fullscreen() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	DisplayServer.window_set_mode(
-		DisplayServer.WINDOW_MODE_WINDOWED if is_fullscreen else DisplayServer.WINDOW_MODE_FULLSCREEN
-	)
-	await get_tree().process_frame
-	_refresh_control_icons()
-
-func _toggle_sound() -> void:
-	sound_enabled = not sound_enabled
-	AudioServer.set_bus_mute(AudioServer.get_bus_index("Master"), not sound_enabled)
-	background_music.stream_paused = not sound_enabled
-	if sound_enabled and not background_music.playing:
-		background_music.play()
-	_refresh_control_icons()
-
-func _refresh_control_icons() -> void:
-	var is_fullscreen := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
-	fullscreen_button.texture_normal = WINDOWED_TEXTURE if is_fullscreen else FULLSCREEN_TEXTURE
-	fullscreen_button.tooltip_text = "SALIR DE PANTALLA COMPLETA" if is_fullscreen else "PANTALLA COMPLETA"
-	sound_button.texture_normal = SOUND_ON_TEXTURE if sound_enabled else SOUND_OFF_TEXTURE
-	sound_button.tooltip_text = "DESACTIVAR SONIDO" if sound_enabled else "ACTIVAR SONIDO"

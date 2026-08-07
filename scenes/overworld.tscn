@@ -1,14 +1,11 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/overworld.gd" id="1_script"]
 [ext_resource type="Texture2D" path="res://assets/overworld/overworld_map_top.png" id="2_map_top"]
 [ext_resource type="Texture2D" path="res://assets/overworld/overworld_map_bottom.png" id="3_map_bottom"]
 [ext_resource type="FontFile" path="res://assets/fonts/press-start-2p-latin-400-normal.woff2" id="8_font"]
 [ext_resource type="AudioStream" path="res://assets/audio/overworld_luces_entre_la_bruma.ogg" id="9_music"]
-[ext_resource type="Texture2D" path="res://assets/ui/generated/fullscreen.png" id="10_fullscreen"]
-[ext_resource type="Texture2D" path="res://assets/ui/generated/sound_on.png" id="11_sound_on"]
-[ext_resource type="Texture2D" path="res://assets/ui/generated/windowed.png" id="12_windowed"]
-[ext_resource type="Texture2D" path="res://assets/ui/generated/sound_off.png" id="13_sound_off"]
+[ext_resource type="PackedScene" path="res://scenes/options_hud.tscn" id="10_options_hud"]
 
 [node name="Overworld" type="Node2D"]
 script = ExtResource("1_script")
@@ -51,31 +48,6 @@ position_smoothing_enabled = false
 
 [node name="Interface" type="CanvasLayer" parent="."]
 
-[node name="TopControls" type="HBoxContainer" parent="Interface"]
-offset_left = 28.0
-offset_top = 26.0
-offset_right = 244.0
-offset_bottom = 126.0
-theme_override_constants/separation = 16
-
-[node name="FullscreenButton" type="TextureButton" parent="Interface/TopControls"]
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-focus_mode = 0
-texture_normal = ExtResource("10_fullscreen")
-texture_pressed = ExtResource("12_windowed")
-ignore_texture_size = true
-stretch_mode = 5
-
-[node name="SoundButton" type="TextureButton" parent="Interface/TopControls"]
-custom_minimum_size = Vector2(100, 100)
-layout_mode = 2
-focus_mode = 0
-texture_normal = ExtResource("11_sound_on")
-texture_pressed = ExtResource("13_sound_off")
-ignore_texture_size = true
-stretch_mode = 5
-
 [node name="JourneyLabel" type="Label" parent="Interface"]
 offset_left = 510.0
 offset_top = 62.0
@@ -98,3 +70,5 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 color = Color(0.01, 0.02, 0.07, 1)
+
+[node name="OptionsHUD" parent="." instance=ExtResource("10_options_hud")]

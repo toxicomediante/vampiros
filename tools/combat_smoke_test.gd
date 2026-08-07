@@ -35,6 +35,7 @@ const REWARD_MAT_SIZE := Vector2(1664.0, 936.0)
 const REWARD_CARD_SIZE := Vector2(296.0, 444.0)
 const REWARD_SKIP_BUTTON_POSITION := Vector2(750.0, 790.0)
 const REWARD_SKIP_BUTTON_SIZE := Vector2(420.0, 104.0)
+const PUB_MEIGAS_BACKGROUND_PATH := "res://assets/backgrounds/combat/pub_meigas.png"
 const CARD_TEXTURE_PATHS := [
 	"res://assets/cards/juan/guantazo.png",
 	"res://assets/cards/juan/guardia.png",
@@ -165,6 +166,38 @@ func _run() -> void:
 		interior_combat.queue_free()
 		for _frame in 3:
 			await process_frame
+
+	game_state.select_character(&"michu")
+	game_state.start_new_run()
+	game_state.begin_location(5, 0, &"meigas", 0)
+	var meigas_combat := packed_scene.instantiate()
+	root.add_child(meigas_combat)
+	current_scene = meigas_combat
+	for _frame in 12:
+		await process_frame
+	var meigas_background := meigas_combat.get_node_or_null("Background") as TextureRect
+	var meigas_foreground := meigas_combat.get_node_or_null("Foreground") as TextureRect
+	var meigas_enemies: Array = meigas_combat.get("enemies")
+	var meigas_options := meigas_combat.get_node_or_null("OptionsHUD") as CanvasLayer
+	_expect(
+		meigas_background != null
+		and meigas_background.texture != null
+		and meigas_background.texture.resource_path == PUB_MEIGAS_BACKGROUND_PATH,
+		"Pub Meigas no carga su fondo de combate"
+	)
+	_expect(
+		meigas_foreground != null and not meigas_foreground.visible,
+		"Pub Meigas conserva un primer plano de otra taberna"
+	)
+	_expect(
+		meigas_enemies.size() == 1 and meigas_enemies[0]["id"] == &"la_mamona",
+		"Pub Meigas no presenta a La Mamona"
+	)
+	_expect(meigas_options != null, "el combate no incluye el menú de opciones")
+	current_scene = null
+	meigas_combat.queue_free()
+	for _frame in 3:
+		await process_frame
 
 	game_state.select_combat_interior(0)
 

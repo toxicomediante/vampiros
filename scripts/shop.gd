@@ -7,8 +7,8 @@ const NPC_IDLE_PATH := "res://assets/npcs/trujillo/idle_atlas.png"
 const NPC_DIALOGUE_PATH := "res://assets/npcs/trujillo/dialogue_atlas.png"
 const COIN_TEXTURE_PATH := "res://assets/ui/currency/coins.png"
 const FONT := preload("res://assets/fonts/press-start-2p-latin-400-normal.woff2")
-const CARD_SIZE := Vector2(260, 390)
-const CARD_POSITIONS := [Vector2(260, 280), Vector2(620, 280), Vector2(980, 280)]
+const CARD_SIZE := Vector2(250, 375)
+const CARD_POSITIONS := [Vector2(185, 260), Vector2(515, 260), Vector2(845, 260)]
 const CARD_TEXTURE_PATHS := {
 	&"guantazo": "res://assets/cards/juan/guantazo.png",
 	&"juan_guardia": "res://assets/cards/juan/guardia.png",
@@ -29,9 +29,8 @@ const CARD_TEXTURE_PATHS := {
 
 @onready var npc_sprite: AnimatedSprite2D = $Shopkeeper/Sprite
 @onready var speech_label: Label = $Interface/SpeechLabel
-@onready var gold_label: Label = $Interface/GoldValue
 @onready var offers_root: Control = $Interface/Offers
-@onready var exit_button: Button = $Interface/ExitButton
+@onready var exit_button: TextureButton = $Interface/ExitButton
 @onready var curtain: ColorRect = $Interface/Curtain
 @onready var background_music: AudioStreamPlayer = $BackgroundMusic
 
@@ -42,9 +41,9 @@ var dialogue_playing := false
 
 func _ready() -> void:
 	_configure_music_loop()
+	GameState.apply_music_volume(background_music)
 	_prepare_shopkeeper()
 	_build_offers()
-	_refresh_gold()
 	exit_button.pressed.connect(_leave_shop)
 	speech_label.text = "¡Pasa, pasa! Tengo género del bueno."
 	var reveal := create_tween()
@@ -132,7 +131,7 @@ func _build_offers() -> void:
 		var price := _card_price(card_id)
 		var price_row := HBoxContainer.new()
 		price_row.name = "Price%d" % offer_index
-		price_row.position = CARD_POSITIONS[offer_index] + Vector2(55, 402)
+		price_row.position = CARD_POSITIONS[offer_index] + Vector2(40, 387)
 		price_row.size = Vector2(170, 60)
 		price_row.alignment = BoxContainer.ALIGNMENT_CENTER
 		price_row.add_theme_constant_override("separation", 2)
@@ -180,7 +179,6 @@ func _buy_card(button: TextureButton, card_id: StringName) -> void:
 		var price_label := price_row.get_node_or_null("Value") as Label
 		if price_label != null:
 			price_label.text = "VENDIDA"
-	_refresh_gold()
 	speech_label.text = "¡Buena compra! Esa carta tiene mucho xeito."
 	_play_dialogue()
 
@@ -209,10 +207,6 @@ func _focus_offer(button: TextureButton, focused: bool) -> void:
 		Color(1.08, 1.04, 1.0) if focused else Color.WHITE,
 		0.12
 	)
-
-
-func _refresh_gold() -> void:
-	gold_label.text = str(GameState.run_gold)
 
 
 func _leave_shop() -> void:

@@ -104,11 +104,22 @@ func _run() -> void:
 			await process_frame
 		var offers := shop.get_node_or_null("Interface/Offers") as Control
 		var npc := shop.get_node_or_null("Shopkeeper/Sprite") as AnimatedSprite2D
+		var exit_button := shop.get_node_or_null("Interface/ExitButton") as TextureButton
+		var options_hud := shop.get_node_or_null("OptionsHUD") as CanvasLayer
 		var first_offer: TextureButton
 		if offers != null:
 			first_offer = offers.get_node_or_null("ShopCard0") as TextureButton
 		_expect(first_offer != null, "Trujillo no ofrece tres cartas comprables")
 		_expect(npc != null and npc.animation == &"idle", "el tendero no inicia su idle")
+		_expect(
+			npc != null and npc.get_parent().scale.x >= 1.0,
+			"el tendero sigue apareciendo pequeño y esquinado"
+		)
+		_expect(
+			exit_button != null and exit_button.texture_normal != null,
+			"Trujillo no usa el botón SALIR gráfico"
+		)
+		_expect(options_hud != null, "Trujillo no incluye el menú de opciones")
 		if first_offer != null:
 			first_offer.emit_signal("pressed")
 			await process_frame

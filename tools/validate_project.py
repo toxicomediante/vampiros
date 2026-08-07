@@ -23,6 +23,7 @@ REQUIRED_FILES = (
     Path("assets/audio/combat_ultima_ronda.ogg"),
     Path("assets/fonts/press-start-2p-latin-400-normal.woff2"),
     Path("assets/backgrounds/shop/supermercados_trujillo.png"),
+    Path("assets/backgrounds/combat/pub_meigas.png"),
     Path("assets/ui/currency/coins.png"),
     Path("assets/npcs/trujillo/idle_atlas.png"),
     Path("assets/npcs/trujillo/dialogue_atlas.png"),
@@ -34,14 +35,23 @@ REQUIRED_FILES = (
     Path("assets/ui/combat/boton_fin_turno.png"),
     Path("assets/ui/combat/boton_omitir.png"),
     Path("assets/ui/combat/reward_mat.png"),
+    Path("assets/ui/options/options_panel.png"),
+    Path("assets/ui/options/options_gear.png"),
+    Path("assets/ui/options/checkbox_empty.png"),
+    Path("assets/ui/options/checkbox_checked.png"),
+    Path("assets/ui/options/volume_track.png"),
+    Path("assets/ui/options/volume_knob.png"),
+    Path("assets/ui/options/boton_salir.png"),
     Path("scenes/combat.tscn"),
     Path("scenes/combat_loader.tscn"),
     Path("scenes/shop.tscn"),
+    Path("scenes/options_hud.tscn"),
     Path("scenes/coming_soon.tscn"),
     Path("scripts/combat.gd"),
     Path("scripts/combat_loader.gd"),
     Path("scripts/enemies/enemy_catalog.gd"),
     Path("scripts/shop.gd"),
+    Path("scripts/options_hud.gd"),
     Path("scripts/coming_soon.gd"),
     Path("tools/combat_smoke_test.gd"),
     Path("tools/progression_smoke_test.gd"),
@@ -367,6 +377,23 @@ def validate_combat_loading() -> None:
     ):
         if token not in shop_script:
             fail(f"shop integration is missing: {token}")
+
+    options_script = Path("scripts/options_hud.gd").read_text(encoding="utf-8")
+    options_scene = Path("scenes/options_hud.tscn").read_text(encoding="utf-8")
+    for token in (
+        "DisplayServer.window_set_mode",
+        "GameState.set_music_volume",
+        "GameState.gold_changed",
+        "PANTALLA COMPLETA",
+        "VOLUMEN DE MÚSICA",
+    ):
+        if token not in options_script and token not in options_scene:
+            fail(f"options menu integration is missing: {token}")
+    if "res://assets/backgrounds/combat/pub_meigas.png" not in combat_script:
+        fail("Pub Meigas does not use its dedicated combat background")
+    shop_scene = Path("scenes/shop.tscn").read_text(encoding="utf-8")
+    if "res://assets/ui/options/boton_salir.png" not in shop_scene:
+        fail("Trujillo does not use the supplied SALIR button")
 
 
 def validate_export_settings() -> None:

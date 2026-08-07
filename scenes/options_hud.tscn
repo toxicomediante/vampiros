@@ -1,0 +1,169 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://scripts/options_hud.gd" id="1_script"]
+[ext_resource type="Texture2D" path="res://assets/ui/options/options_panel.png" id="2_panel"]
+[ext_resource type="Texture2D" path="res://assets/ui/options/options_gear.png" id="3_gear"]
+[ext_resource type="Texture2D" path="res://assets/ui/options/checkbox_empty.png" id="4_checkbox"]
+[ext_resource type="Texture2D" path="res://assets/ui/options/volume_track.png" id="5_track"]
+[ext_resource type="Texture2D" path="res://assets/ui/options/volume_knob.png" id="6_knob"]
+[ext_resource type="Texture2D" path="res://assets/ui/currency/coins.png" id="7_coins"]
+[ext_resource type="FontFile" path="res://assets/fonts/press-start-2p-latin-400-normal.woff2" id="8_font"]
+
+[node name="OptionsHUD" type="CanvasLayer"]
+layer = 50
+process_mode = 3
+script = ExtResource("1_script")
+
+[node name="Currency" type="Control" parent="."]
+offset_left = 28.0
+offset_top = 22.0
+offset_right = 248.0
+offset_bottom = 94.0
+mouse_filter = 2
+
+[node name="GoldIcon" type="TextureRect" parent="Currency"]
+offset_right = 64.0
+offset_bottom = 64.0
+mouse_filter = 2
+texture = ExtResource("7_coins")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="GoldValue" type="Label" parent="Currency"]
+offset_left = 62.0
+offset_top = 4.0
+offset_right = 220.0
+offset_bottom = 64.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.84, 0.38, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 6
+theme_override_fonts/font = ExtResource("8_font")
+theme_override_font_sizes/font_size = 24
+text = "0"
+vertical_alignment = 1
+
+[node name="Overlay" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.005, 0.006, 0.012, 0.72)
+
+[node name="Panel" type="TextureRect" parent="Overlay"]
+offset_left = 660.0
+offset_top = 90.0
+offset_right = 1260.0
+offset_bottom = 990.0
+mouse_filter = 2
+texture = ExtResource("2_panel")
+expand_mode = 1
+stretch_mode = 0
+texture_filter = 1
+
+[node name="FullscreenCheckbox" type="TextureButton" parent="Overlay"]
+offset_left = 755.0
+offset_top = 365.0
+offset_right = 819.0
+offset_bottom = 429.0
+focus_mode = 0
+texture_normal = ExtResource("4_checkbox")
+ignore_texture_size = true
+stretch_mode = 5
+texture_filter = 1
+
+[node name="FullscreenLabel" type="Label" parent="Overlay"]
+offset_left = 845.0
+offset_top = 365.0
+offset_right = 1190.0
+offset_bottom = 429.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.69, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("8_font")
+theme_override_font_sizes/font_size = 18
+text = "PANTALLA COMPLETA"
+vertical_alignment = 1
+
+[node name="VolumeLabel" type="Label" parent="Overlay"]
+offset_left = 755.0
+offset_top = 520.0
+offset_right = 1165.0
+offset_bottom = 570.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.86, 0.69, 1)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 5
+theme_override_fonts/font = ExtResource("8_font")
+theme_override_font_sizes/font_size = 18
+text = "VOLUMEN DE MÚSICA"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="SliderArea" type="Control" parent="Overlay"]
+offset_left = 800.0
+offset_top = 595.0
+offset_right = 1120.0
+offset_bottom = 643.0
+mouse_default_cursor_shape = 2
+
+[node name="VolumeTrack" type="TextureRect" parent="Overlay/SliderArea"]
+offset_top = 8.0
+offset_right = 320.0
+offset_bottom = 40.0
+mouse_filter = 2
+texture = ExtResource("5_track")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="VolumeKnob" type="TextureRect" parent="Overlay/SliderArea"]
+offset_right = 48.0
+offset_bottom = 48.0
+mouse_filter = 2
+texture = ExtResource("6_knob")
+expand_mode = 1
+stretch_mode = 5
+texture_filter = 1
+
+[node name="CloseHint" type="Label" parent="Overlay"]
+offset_left = 760.0
+offset_top = 830.0
+offset_right = 1160.0
+offset_bottom = 880.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.84, 0.7, 0.55, 0.86)
+theme_override_colors/font_outline_color = Color(0.02, 0.01, 0.015, 1)
+theme_override_constants/outline_size = 4
+theme_override_fonts/font = ExtResource("8_font")
+theme_override_font_sizes/font_size = 13
+text = "PULSA EL ENGRANAJE PARA CERRAR"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="GearBackground" type="ColorRect" parent="."]
+offset_left = 1776.0
+offset_top = 20.0
+offset_right = 1896.0
+offset_bottom = 140.0
+mouse_filter = 2
+color = Color(0.015, 0.016, 0.02, 0.88)
+
+[node name="GearButton" type="TextureButton" parent="."]
+offset_left = 1788.0
+offset_top = 32.0
+offset_right = 1884.0
+offset_bottom = 128.0
+focus_mode = 0
+texture_normal = ExtResource("3_gear")
+texture_pressed = ExtResource("3_gear")
+texture_hover = ExtResource("3_gear")
+ignore_texture_size = true
+stretch_mode = 5
+texture_filter = 1
+tooltip_text = "OPCIONES"

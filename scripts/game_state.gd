@@ -2,6 +2,8 @@ extends Node
 
 const EnemyCatalogScript = preload("res://scripts/enemies/enemy_catalog.gd")
 
+signal gold_changed(value: int)
+
 const VALID_CHARACTERS := [&"michu", &"juan"]
 const COMBAT_INTERIOR_COUNT := 3
 const MAX_ROUTE_STEPS := 8
@@ -14,6 +16,7 @@ var selected_combat_interior := 0
 var run_deck: Array[StringName] = []
 var run_hp := 0
 var run_gold := 0
+var music_volume := 1.0
 var run_statuses := {
 	"poison": 0,
 	"regeneration": 0,
@@ -46,6 +49,7 @@ func start_new_run() -> void:
 	run_deck = CardCatalog.build_starting_deck(selected_character)
 	run_hp = 72 if selected_character == &"juan" else 60
 	run_gold = 0
+	gold_changed.emit(run_gold)
 	run_statuses = {
 		"poison": 0,
 		"regeneration": 0,
@@ -66,6 +70,7 @@ func abandon_run() -> void:
 	run_deck.clear()
 	run_hp = 0
 	run_gold = 0
+	gold_changed.emit(run_gold)
 	route_step = 0
 	route_data.clear()
 	route_branch_history.clear()
@@ -86,13 +91,38 @@ func add_reward_card(card_id: StringName) -> void:
 
 func add_gold(amount: int) -> void:
 	run_gold = maxi(0, run_gold + amount)
+	gold_changed.emit(run_gold)
 
 
 func spend_gold(amount: int) -> bool:
 	if amount < 0 or run_gold < amount:
 		return false
 	run_gold -= amount
+	gold_changed.emit(run_gold)
 	return true
+
+
+func set_music_volume(value: float) -> void:
+	music_volume = clampf(value, 0.0, 1.0)
+	var current_scene := get_tree().current_scene
+	if current_scene == null:
+		return
+	var music_player := current_scene.get_node_or_null("BackgroundMusic") as AudioStreamPlayer
+	apply_music_volume(music_player)
+
+
+func apply_music_volume(music_player: AudioStreamPlayer) -> void:
+	if not is_instance_valid(music_player):
+		return
+	if not music_player.has_meta("base_volume_db"):
+		music_player.set_meta("base_volume_db", music_player.volume_db)
+	var base_volume_db := float(music_player.get_meta("base_volume_db"))
+	music_player.stream_paused = music_volume <= 0.001
+	music_player.volume_db = (
+		base_volume_db - 40.0
+		if music_volume <= 0.001
+		else base_volume_db + linear_to_db(music_volume)
+	)
 
 
 func save_player_state(state: Object) -> void:
