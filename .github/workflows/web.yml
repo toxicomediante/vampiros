@@ -101,6 +101,9 @@ jobs:
           test ! -e build/web/index.js
           test ! -e build/web/index.pck
           test ! -e build/web/index.wasm
+          cp tools/retire_legacy_service_worker.js \
+            build/web/index.service.worker.js
+          test -s build/web/index.service.worker.js
           cp assets/social/vampiros_social_preview_v2.png \
             build/web/vampiros_social_preview_v2.png
           touch build/web/.nojekyll

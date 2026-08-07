@@ -58,6 +58,7 @@ REQUIRED_FILES = (
     Path("tools/scene_lifecycle_test.gd"),
     Path("tools/version_web_export.py"),
     Path("tools/test_version_web_export.py"),
+    Path("tools/retire_legacy_service_worker.js"),
     Path("art_source/.gdignore"),
     Path("art_source/runtime_sources/README.md"),
 )

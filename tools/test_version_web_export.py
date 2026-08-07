@@ -43,6 +43,11 @@ const GODOT_CONFIG = {"executable":"index","fileSizes":{"index.pck":1,"index.was
                 f'<meta name="vampiros-build" content="{build_id}">',
                 rewritten,
             )
+            self.assertIn("navigator.serviceWorker.getRegistrations()", rewritten)
+            self.assertIn("registration.scope === appRoot.href", rewritten)
+            self.assertIn("url.pathname.startsWith(appRoot.pathname)", rewritten)
+            self.assertNotIn("localStorage.clear", rewritten)
+            self.assertNotIn("indexedDB.deleteDatabase", rewritten)
             self.assertIn(f'"executable":"{versioned_prefix}"', rewritten)
             for source_name in RUNTIME_FILES:
                 target_name = source_name.replace("index", versioned_prefix, 1)
