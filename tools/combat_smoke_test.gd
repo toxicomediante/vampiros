@@ -838,7 +838,7 @@ func _run() -> void:
 		"CÍRCULO NEGRO no anula el siguiente ataque"
 	)
 
-	mechanics_deck.set("hand", [&"pollo_con_pollo"])
+	_replace_deck_cards(mechanics_deck, &"hand", [&"pollo_con_pollo"])
 	mechanics_combat.call("set_energy", 3)
 	mechanics_player.set("poison", 0)
 	_expect(
@@ -848,7 +848,7 @@ func _run() -> void:
 		"POLLO CON POLLO no envenena y se agota"
 	)
 
-	mechanics_deck.set("hand", [&"la_slam"])
+	_replace_deck_cards(mechanics_deck, &"hand", [&"la_slam"])
 	mechanics_combat.call("set_energy", 3)
 	var gold_before_slam: int = game_state.run_gold
 	_expect(
@@ -859,7 +859,11 @@ func _run() -> void:
 	)
 
 	mechanics_combat.set("free_card_counts", {})
-	mechanics_deck.set("hand", [&"ahora_la_vi", &"guantazo", &"juan_guardia"])
+	_replace_deck_cards(
+		mechanics_deck,
+		&"hand",
+		[&"ahora_la_vi", &"guantazo", &"juan_guardia"]
+	)
 	mechanics_combat.call("set_energy", 3)
 	_expect(
 		mechanics_combat.call("_try_play_card", &"ahora_la_vi", -1)
@@ -869,8 +873,10 @@ func _run() -> void:
 	)
 
 	mechanics_combat.set("free_card_counts", {})
-	mechanics_deck.set("hand", [&"evangelio"])
-	mechanics_deck.set("draw_pile", [&"guantazo", &"juan_guardia"])
+	_replace_deck_cards(mechanics_deck, &"hand", [&"evangelio"])
+	_replace_deck_cards(
+		mechanics_deck, &"draw_pile", [&"guantazo", &"juan_guardia"]
+	)
 	mechanics_combat.call("set_energy", 3)
 	_expect(
 		mechanics_combat.call("_try_play_card", &"evangelio", -1)
@@ -882,7 +888,7 @@ func _run() -> void:
 	)
 
 	mechanics_combat.set("free_card_counts", {})
-	mechanics_deck.set("hand", [&"licor_k"])
+	_replace_deck_cards(mechanics_deck, &"hand", [&"licor_k"])
 	mechanics_combat.call("set_energy", 3)
 	mechanics_player.set("strength", 0)
 	_expect(
@@ -892,7 +898,7 @@ func _run() -> void:
 	)
 
 	mechanics_combat.set("free_card_counts", {})
-	mechanics_deck.set("hand", [&"la_revancha"])
+	_replace_deck_cards(mechanics_deck, &"hand", [&"la_revancha"])
 	mechanics_combat.call("set_energy", 3)
 	_expect(
 		mechanics_combat.call("_try_play_card", &"la_revancha", -1),
@@ -966,6 +972,16 @@ func _expect_status_item(
 			label.get_theme_color("font_color").is_equal_approx(color),
 			"%s usa un color incorrecto" % context
 		)
+
+
+func _replace_deck_cards(
+	deck_instance: RefCounted,
+	property_name: StringName,
+	card_ids: Array[StringName]
+) -> void:
+	var cards: Array = deck_instance.get(property_name)
+	cards.clear()
+	cards.append_array(card_ids)
 
 
 func _count_textured_rects(node: Node) -> int:
